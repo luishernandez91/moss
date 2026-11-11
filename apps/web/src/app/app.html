@@ -1,0 +1,54 @@
+@if (isDesktop()) {
+  <mat-sidenav-container class="shell">
+    <mat-sidenav mode="side" opened class="sidebar">
+      <div class="brand">
+        <mat-icon aria-hidden="true">eco</mat-icon>
+        <span>Moss &amp; Roots</span>
+      </div>
+      <mat-nav-list aria-label="Navegación principal">
+        @for (item of navItems; track item.path) {
+          <a
+            mat-list-item
+            [routerLink]="['/', item.path]"
+            routerLinkActive
+            #rla="routerLinkActive"
+            [activated]="rla.isActive"
+          >
+            <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+            <span matListItemTitle>{{ item.label }}</span>
+          </a>
+        }
+      </mat-nav-list>
+    </mat-sidenav>
+    <mat-sidenav-content>
+      <main>
+        <router-outlet />
+      </main>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+} @else {
+  <div class="mobile">
+    <mat-toolbar class="topbar">
+      <mat-icon aria-hidden="true">eco</mat-icon>
+      <span>Moss &amp; Roots</span>
+    </mat-toolbar>
+    <main class="mobile-main">
+      <router-outlet />
+    </main>
+    <nav class="tabbar" aria-label="Navegación principal">
+      @for (tab of mobileTabs; track tab.path) {
+        <a
+          [routerLink]="['/', tab.path]"
+          routerLinkActive="active"
+          class="tab"
+          [class.primary]="tab.path === 'vender'"
+        >
+          <mat-icon aria-hidden="true">{{ tab.icon }}</mat-icon>
+          <span>{{
+            tab.path === 'inicio' ? 'Inicio' : tab.path === 'vender' ? 'Vender' : tab.label
+          }}</span>
+        </a>
+      }
+    </nav>
+  </div>
+}

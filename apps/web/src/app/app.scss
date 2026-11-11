@@ -1,0 +1,67 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.shell {
+  height: 100%;
+}
+
+.sidebar {
+  width: 248px;
+  border-right: 1px solid var(--mat-sys-outline-variant);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px 12px;
+  font: var(--mat-sys-title-medium);
+  color: var(--mat-sys-primary);
+}
+
+.mobile {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+}
+
+.topbar {
+  gap: 8px;
+  color: var(--mat-sys-primary);
+}
+
+.mobile-main {
+  overflow: auto;
+}
+
+.tabbar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-top: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.tab {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 0;
+  min-height: 56px;
+  text-decoration: none;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+}
+
+.tab.active {
+  color: var(--mat-sys-primary);
+}
+
+.tab.primary mat-icon {
+  background: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+  border-radius: 999px;
+  padding: 4px 16px;
+}

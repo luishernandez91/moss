@@ -1,0 +1,360 @@
+{
+  "_nota": "Catálogo de ejemplo para el sistema de Moss & Roots. Precios en MXN, ilustrativos. '{tamano}' en una receta significa: el mismo tamaño que se está produciendo.",
+  "tipos_articulo": [
+    {
+      "id": "planta",
+      "nombre": "Planta",
+      "atributos": [
+        { "nombre": "nombre_cientifico", "tipo_dato": "texto", "requerido": false, "define_variante": false },
+        { "nombre": "luz", "tipo_dato": "lista", "opciones": ["sombra", "media sombra", "luz indirecta", "sol directo"], "requerido": true, "define_variante": false },
+        { "nombre": "riego", "tipo_dato": "lista", "opciones": ["escaso", "moderado", "frecuente"], "requerido": true, "define_variante": false },
+        { "nombre": "interior", "tipo_dato": "booleano", "requerido": true, "define_variante": false },
+        { "nombre": "toxica_mascotas", "tipo_dato": "booleano", "requerido": true, "define_variante": false },
+        { "nombre": "temporada", "tipo_dato": "lista", "opciones": ["todo el año", "noviembre-diciembre", "primavera"], "requerido": false, "define_variante": false },
+        { "nombre": "tamano", "tipo_dato": "lista", "opciones": ["mini", "chico", "mediano", "grande"], "requerido": true, "define_variante": true }
+      ]
+    },
+    {
+      "id": "maceta",
+      "nombre": "Maceta",
+      "atributos": [
+        { "nombre": "material", "tipo_dato": "lista", "opciones": ["concreto", "barro", "cerámica", "plástico"], "requerido": true, "define_variante": false },
+        { "nombre": "drenaje", "tipo_dato": "booleano", "requerido": true, "define_variante": false },
+        { "nombre": "forma", "tipo_dato": "lista", "opciones": ["redonda", "cuadrada", "hexagonal"], "requerido": true, "define_variante": true },
+        { "nombre": "diametro", "tipo_dato": "numero", "unidad": "cm", "requerido": true, "define_variante": true },
+        { "nombre": "color", "tipo_dato": "lista", "opciones": ["gris", "blanco", "negro", "terracota", "natural"], "requerido": true, "define_variante": true }
+      ]
+    },
+    {
+      "id": "sustrato",
+      "nombre": "Sustrato",
+      "atributos": [
+        { "nombre": "composicion", "tipo_dato": "texto", "requerido": true, "define_variante": false },
+        { "nombre": "uso_recomendado", "tipo_dato": "lista", "opciones": ["general", "cactus y suculentas", "kokedama", "enraizado"], "requerido": true, "define_variante": false },
+        { "nombre": "presentacion", "tipo_dato": "numero", "unidad": "L", "requerido": true, "define_variante": true }
+      ]
+    },
+    {
+      "id": "nutricion",
+      "nombre": "Fertilizantes y vitaminas",
+      "atributos": [
+        { "nombre": "forma", "tipo_dato": "lista", "opciones": ["líquido", "granulado", "polvo"], "requerido": true, "define_variante": false },
+        { "nombre": "npk", "tipo_dato": "texto", "requerido": false, "define_variante": false },
+        { "nombre": "dosis", "tipo_dato": "texto", "requerido": true, "define_variante": false },
+        { "nombre": "organico", "tipo_dato": "booleano", "requerido": true, "define_variante": false },
+        { "nombre": "presentacion", "tipo_dato": "numero", "unidad": "ml o g", "requerido": true, "define_variante": true }
+      ]
+    },
+    {
+      "id": "material",
+      "nombre": "Material de producción",
+      "atributos": [
+        { "nombre": "unidad_consumo", "tipo_dato": "lista", "opciones": ["metro", "pieza", "gramo", "litro"], "requerido": true, "define_variante": false },
+        { "nombre": "color", "tipo_dato": "lista", "opciones": ["natural", "café", "rojo", "blanco"], "requerido": false, "define_variante": true }
+      ]
+    }
+  ],
+
+  "articulos": [
+    {
+      "id": "nochebuena",
+      "tipo": "planta",
+      "nombre": "Nochebuena",
+      "atributos_fijos": { "nombre_cientifico": "Euphorbia pulcherrima", "luz": "luz indirecta", "riego": "moderado", "interior": true, "toxica_mascotas": true, "temporada": "noviembre-diciembre" },
+      "se_vende": true,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "PLA-NOC-CH", "atributos": { "tamano": "chico" }, "costo_promedio": 30, "precio": 90, "existencia": 30 },
+        { "sku": "PLA-NOC-MD", "atributos": { "tamano": "mediano" }, "costo_promedio": 45, "precio": 130, "existencia": 0 },
+        { "sku": "PLA-NOC-GR", "atributos": { "tamano": "grande" }, "costo_promedio": 70, "precio": 190, "existencia": 0 }
+      ]
+    },
+    {
+      "id": "poto",
+      "tipo": "planta",
+      "nombre": "Poto",
+      "atributos_fijos": { "nombre_cientifico": "Epipremnum aureum", "luz": "media sombra", "riego": "moderado", "interior": true, "toxica_mascotas": true, "temporada": "todo el año" },
+      "se_vende": true,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "PLA-POT-CH", "atributos": { "tamano": "chico" }, "costo_promedio": 25, "precio": 70, "existencia": 12 },
+        { "sku": "PLA-POT-MD", "atributos": { "tamano": "mediano" }, "costo_promedio": 40, "precio": 110, "existencia": 6 }
+      ]
+    },
+    {
+      "id": "helecho-boston",
+      "tipo": "planta",
+      "nombre": "Helecho Boston",
+      "atributos_fijos": { "nombre_cientifico": "Nephrolepis exaltata", "luz": "media sombra", "riego": "frecuente", "interior": true, "toxica_mascotas": false, "temporada": "todo el año" },
+      "se_vende": true,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "PLA-HEL-CH", "atributos": { "tamano": "chico" }, "costo_promedio": 35, "precio": 90, "existencia": 8 },
+        { "sku": "PLA-HEL-MD", "atributos": { "tamano": "mediano" }, "costo_promedio": 55, "precio": 140, "existencia": 4 }
+      ]
+    },
+    {
+      "id": "echeveria",
+      "tipo": "planta",
+      "nombre": "Suculenta Echeveria",
+      "atributos_fijos": { "nombre_cientifico": "Echeveria elegans", "luz": "sol directo", "riego": "escaso", "interior": false, "toxica_mascotas": false, "temporada": "todo el año" },
+      "se_vende": true,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "PLA-ECH-MI", "atributos": { "tamano": "mini" }, "costo_promedio": 12, "precio": 35, "existencia": 60 },
+        { "sku": "PLA-ECH-CH", "atributos": { "tamano": "chico" }, "costo_promedio": 20, "precio": 55, "existencia": 20 }
+      ]
+    },
+    {
+      "id": "mammillaria",
+      "tipo": "planta",
+      "nombre": "Cactus Mammillaria",
+      "atributos_fijos": { "nombre_cientifico": "Mammillaria elongata", "luz": "sol directo", "riego": "escaso", "interior": false, "toxica_mascotas": false, "temporada": "todo el año" },
+      "se_vende": true,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "PLA-MAM-MI", "atributos": { "tamano": "mini" }, "costo_promedio": 10, "precio": 30, "existencia": 40 },
+        { "sku": "PLA-MAM-CH", "atributos": { "tamano": "chico" }, "costo_promedio": 18, "precio": 50, "existencia": 15 }
+      ]
+    },
+
+    {
+      "id": "maceta-concreto",
+      "tipo": "maceta",
+      "nombre": "Maceta de concreto",
+      "atributos_fijos": { "material": "concreto", "drenaje": true },
+      "se_vende": true,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "MAC-CON-R08-GR", "atributos": { "forma": "redonda", "diametro": 8, "color": "gris" }, "costo_promedio": 15, "precio": 35, "existencia": 25 },
+        { "sku": "MAC-CON-R08-BL", "atributos": { "forma": "redonda", "diametro": 8, "color": "blanco" }, "costo_promedio": 15, "precio": 35, "existencia": 20 },
+        { "sku": "MAC-CON-R10-GR", "atributos": { "forma": "redonda", "diametro": 10, "color": "gris" }, "costo_promedio": 18, "precio": 45, "existencia": 12 },
+        { "sku": "MAC-CON-C10-NE", "atributos": { "forma": "cuadrada", "diametro": 10, "color": "negro" }, "costo_promedio": 20, "precio": 50, "existencia": 8 },
+        { "sku": "MAC-CON-H06-BL", "atributos": { "forma": "hexagonal", "diametro": 6, "color": "blanco" }, "costo_promedio": 9, "precio": 25, "existencia": 60 }
+      ]
+    },
+    {
+      "id": "maceta-barro",
+      "tipo": "maceta",
+      "nombre": "Maceta de barro",
+      "atributos_fijos": { "material": "barro", "drenaje": true },
+      "se_vende": true,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "MAC-BAR-R12-TE", "atributos": { "forma": "redonda", "diametro": 12, "color": "terracota" }, "costo_promedio": 12, "precio": 30, "existencia": 30 },
+        { "sku": "MAC-BAR-R16-TE", "atributos": { "forma": "redonda", "diametro": 16, "color": "terracota" }, "costo_promedio": 20, "precio": 45, "existencia": 15 }
+      ]
+    },
+    {
+      "id": "maceta-ceramica",
+      "tipo": "maceta",
+      "nombre": "Maceta de cerámica",
+      "atributos_fijos": { "material": "cerámica", "drenaje": false },
+      "se_vende": true,
+      "se_usa_en_recetas": false,
+      "variantes": [
+        { "sku": "MAC-CER-R10-BL", "atributos": { "forma": "redonda", "diametro": 10, "color": "blanco" }, "costo_promedio": 28, "precio": 65, "existencia": 6 }
+      ]
+    },
+
+    {
+      "id": "tierra-preparada",
+      "tipo": "sustrato",
+      "nombre": "Tierra preparada",
+      "atributos_fijos": { "composicion": "Tierra negra, hoja y agrolita", "uso_recomendado": "general" },
+      "se_vende": true,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "SUS-TIE-05L", "atributos": { "presentacion": 5 }, "costo_promedio": 35, "precio": 65, "existencia": 10 },
+        { "sku": "SUS-TIE-20L", "atributos": { "presentacion": 20 }, "costo_promedio": 110, "precio": null, "existencia": 2, "_nota": "Bulto de producción: no se vende, se consume en recetas" }
+      ]
+    },
+    {
+      "id": "mezcla-cactus",
+      "tipo": "sustrato",
+      "nombre": "Mezcla para cactus y suculentas",
+      "atributos_fijos": { "composicion": "Tierra, arena de río y tezontle", "uso_recomendado": "cactus y suculentas" },
+      "se_vende": true,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "SUS-CAC-02L", "atributos": { "presentacion": 2 }, "costo_promedio": 30, "precio": 60, "existencia": 8 }
+      ]
+    },
+    {
+      "id": "fibra-coco",
+      "tipo": "sustrato",
+      "nombre": "Fibra de coco (elaboración propia)",
+      "atributos_fijos": { "composicion": "Cáscara de coco donada, procesada a mano", "uso_recomendado": "kokedama" },
+      "se_vende": false,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "SUS-FIB-PORC", "atributos": { "presentacion": 0.5 }, "costo_promedio": 0, "precio": null, "existencia": 40, "_nota": "Costo $0 de material; el tiempo de elaboración se paga en la fabricación" }
+      ]
+    },
+
+    {
+      "id": "fertilizante-triple-20",
+      "tipo": "nutricion",
+      "nombre": "Fertilizante foliar 20-20-20",
+      "atributos_fijos": { "forma": "líquido", "npk": "20-20-20", "dosis": "5 ml por litro de agua cada 15 días", "organico": false },
+      "se_vende": true,
+      "se_usa_en_recetas": false,
+      "variantes": [
+        { "sku": "NUT-F20-250", "atributos": { "presentacion": 250 }, "costo_promedio": 45, "precio": 89, "existencia": 6 }
+      ]
+    },
+    {
+      "id": "vitaminas-b1",
+      "tipo": "nutricion",
+      "nombre": "Vitaminas B1 enraizador",
+      "atributos_fijos": { "forma": "líquido", "npk": null, "dosis": "2 ml por litro al trasplantar", "organico": false },
+      "se_vende": true,
+      "se_usa_en_recetas": false,
+      "variantes": [
+        { "sku": "NUT-VB1-120", "atributos": { "presentacion": 120 }, "costo_promedio": 35, "precio": 69, "existencia": 5 }
+      ]
+    },
+    {
+      "id": "humus-lombriz",
+      "tipo": "nutricion",
+      "nombre": "Humus de lombriz",
+      "atributos_fijos": { "forma": "granulado", "npk": "1-0.5-0.5", "dosis": "2 cucharadas por maceta cada mes", "organico": true },
+      "se_vende": true,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "NUT-HUM-1KG", "atributos": { "presentacion": 1000 }, "costo_promedio": 25, "precio": 50, "existencia": 10 }
+      ]
+    },
+
+    {
+      "id": "hilo-canamo",
+      "tipo": "material",
+      "nombre": "Hilo de cáñamo",
+      "atributos_fijos": { "unidad_consumo": "metro" },
+      "se_vende": false,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "MAT-HIL-NAT", "atributos": { "color": "natural" }, "costo_promedio": 0.5, "precio": null, "existencia": 300 }
+      ]
+    },
+    {
+      "id": "liga-tela",
+      "tipo": "material",
+      "nombre": "Liga de tela para collar",
+      "atributos_fijos": { "unidad_consumo": "pieza" },
+      "se_vende": false,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "MAT-LIG-CAF", "atributos": { "color": "café" }, "costo_promedio": 1, "precio": null, "existencia": 50 },
+        { "sku": "MAT-LIG-ROJ", "atributos": { "color": "rojo" }, "costo_promedio": 1, "precio": null, "existencia": 50 }
+      ]
+    },
+    {
+      "id": "limpiapipas",
+      "tipo": "material",
+      "nombre": "Limpiapipas",
+      "atributos_fijos": { "unidad_consumo": "pieza" },
+      "se_vende": false,
+      "se_usa_en_recetas": true,
+      "variantes": [
+        { "sku": "MAT-LIM-CAF", "atributos": { "color": "café" }, "costo_promedio": 0.5, "precio": null, "existencia": 100 }
+      ]
+    }
+  ],
+
+  "productos": [
+    {
+      "id": "kokedama",
+      "parent_id": null,
+      "nombre": "Kokedama",
+      "tamanos": ["chico", "mediano", "grande"],
+      "componentes": [
+        { "id": "k-fibra", "articulo_id": "fibra-coco", "tipo": "material", "cantidad": 1 },
+        { "id": "k-tierra", "articulo_id": "tierra-preparada", "variante_sku": "SUS-TIE-20L", "tipo": "material", "cantidad": { "chico": 0.01, "mediano": 0.015, "grande": 0.025 } },
+        { "id": "k-hilo", "articulo_id": "hilo-canamo", "tipo": "material", "cantidad": { "chico": 4, "mediano": 6, "grande": 8 } },
+        { "id": "k-fab", "concepto": "Fabricación", "tipo": "mano_obra", "monto": { "chico": 20, "mediano": 25, "grande": 30 } }
+      ],
+      "precios": null
+    },
+    {
+      "id": "kokedama-nochebuena",
+      "parent_id": "kokedama",
+      "nombre": "Kokedama Nochebuena",
+      "componentes": [
+        { "id": "kn-planta", "articulo_id": "nochebuena", "filtro_atributos": { "tamano": "{tamano}" }, "tipo": "material", "cantidad": 1 }
+      ],
+      "precios": { "chico": 120, "mediano": 160, "grande": 230 }
+    },
+    {
+      "id": "kokedama-helecho",
+      "parent_id": "kokedama",
+      "nombre": "Kokedama Helecho Boston",
+      "componentes": [
+        { "id": "kh-planta", "articulo_id": "helecho-boston", "filtro_atributos": { "tamano": "{tamano}" }, "tipo": "material", "cantidad": 1 },
+        { "id": "kh-humus", "articulo_id": "humus-lombriz", "tipo": "material", "cantidad": 0.03 },
+        { "id": "kh-fab", "concepto": "Fabricación (helecho, más delicado)", "tipo": "mano_obra", "monto": { "chico": 24, "mediano": 30 }, "sustituye_componente_id": "k-fab" }
+      ],
+      "precios": { "chico": 140, "mediano": 190 }
+    },
+    {
+      "id": "planta-en-maceta",
+      "parent_id": null,
+      "nombre": "Planta en maceta",
+      "componentes": [
+        { "id": "pm-arm", "concepto": "Trasplante y armado", "tipo": "mano_obra", "monto": 8 }
+      ],
+      "precios": null
+    },
+    {
+      "id": "cactus-maceta-concreto",
+      "parent_id": "planta-en-maceta",
+      "nombre": "Cactus en maceta de concreto",
+      "tamanos": ["chico"],
+      "componentes": [
+        { "id": "cm-planta", "articulo_id": "mammillaria", "filtro_atributos": { "tamano": "chico" }, "tipo": "material", "cantidad": 1 },
+        { "id": "cm-maceta", "articulo_id": "maceta-concreto", "filtro_atributos": { "forma": "redonda", "diametro": 8 }, "tipo": "material", "cantidad": 1, "_nota": "El color se elige al producir; el costo sale de la variante elegida" },
+        { "id": "cm-sustrato", "articulo_id": "mezcla-cactus", "tipo": "material", "cantidad": 0.15 }
+      ],
+      "precios": { "chico": 95 }
+    },
+    {
+      "id": "centro-mesa-suculenta",
+      "parent_id": "planta-en-maceta",
+      "nombre": "Centro de mesa suculenta mini",
+      "tamanos": ["mini"],
+      "componentes": [
+        { "id": "cs-planta", "articulo_id": "echeveria", "filtro_atributos": { "tamano": "mini" }, "tipo": "material", "cantidad": 1 },
+        { "id": "cs-maceta", "articulo_id": "maceta-concreto", "filtro_atributos": { "forma": "hexagonal", "diametro": 6 }, "tipo": "material", "cantidad": 1 },
+        { "id": "cs-sustrato", "articulo_id": "mezcla-cactus", "tipo": "material", "cantidad": 0.08 },
+        { "id": "cs-arm", "concepto": "Armado de centro de mesa", "tipo": "mano_obra", "monto": 6, "sustituye_componente_id": "pm-arm" }
+      ],
+      "precios": { "mini": 100 }
+    }
+  ],
+
+  "extras": [
+    {
+      "id": "reno",
+      "nombre": "Collar Reno",
+      "aplica_a": ["kokedama"],
+      "componentes": [
+        { "articulo_id": "liga-tela", "variante_sku": "MAT-LIG-CAF", "cantidad": 1 },
+        { "articulo_id": "limpiapipas", "cantidad": 2 },
+        { "concepto": "Fieltro, pompón y ojos", "tipo": "material", "monto": 4 },
+        { "concepto": "Armado del collar", "tipo": "mano_obra", "monto": 12.5 }
+      ],
+      "precio_extra": 59
+    },
+    {
+      "id": "mono",
+      "nombre": "Collar Moño",
+      "aplica_a": ["kokedama"],
+      "componentes": [
+        { "articulo_id": "liga-tela", "variante_sku": "MAT-LIG-ROJ", "cantidad": 1 },
+        { "concepto": "Listón rojo 40 cm y mini pinza", "tipo": "material", "monto": 5 },
+        { "concepto": "Armado del collar", "tipo": "mano_obra", "monto": 7.5 }
+      ],
+      "precio_extra": 59
+    }
+  ]
+}

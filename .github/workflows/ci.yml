@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: moss
+          POSTGRES_PASSWORD: moss
+          POSTGRES_DB: moss
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U moss -d moss"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://moss:moss@localhost:5432/moss
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm db:migrate
+      - run: pnpm --filter api test:e2e
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: pnpm e2e
