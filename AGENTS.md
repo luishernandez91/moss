@@ -11,7 +11,8 @@ Los usuarios son dos personas, casi siempre desde el celular. La prioridad es qu
 - Especificación funcional completa: `docs/especificacion.md` (léela antes de tocar dominio o pantallas).
 - Plan de trabajo e historias: `backlog.md`.
 - Decisiones de arquitectura: `docs/decisiones.md`.
-- Diseño de pantallas: `docs/diseno/prompts-pantallas.md`.
+- Diseño de pantallas: imágenes de referencia en `docs/diseno/pantallas/` (desktop y mobile por pantalla, con el número de la especificación, ej. `13-detalle-de-campana-desktop.png`). El índice y las diferencias conocidas están en `docs/diseno/pantallas/README.md`. Los prompts que las generaron están en `docs/diseno/prompts-pantallas.md`.
+- **Las imágenes son referencia de layout y jerarquía, no la fuente de verdad.** Si una imagen contradice la especificación en cifras, campos o reglas, gana la especificación. Abre solo las imágenes de la pantalla de tu historia, no toda la carpeta.
 
 ## Stack (no cambiar versiones mayores sin pedirlo)
 

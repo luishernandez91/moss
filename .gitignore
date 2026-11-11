@@ -14,3 +14,7 @@ test-results/
 playwright-report/
 *.tsbuildinfo
 uploads/
+
+# Exportaciones originales de diseño (2x) y archivos temporales de revisión
+docs/diseno/pantallas/_originales-2x/
+.tmp-revision/
