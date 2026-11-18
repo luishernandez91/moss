@@ -34,6 +34,7 @@ interface RawProduct {
   nombre: string;
   tamanos?: string[];
   componentes: RawComponent[];
+  precios?: Record<string, number> | null;
 }
 
 interface RawAddOn {
@@ -41,12 +42,18 @@ interface RawAddOn {
   nombre: string;
   aplica_a: string[];
   componentes: RawComponent[];
+  precio_extra: number;
 }
 
 interface RawArticle {
   id: string;
   nombre: string;
-  variantes: { sku: string; atributos: Record<string, AttributeValue>; costo_promedio: number }[];
+  variantes: {
+    sku: string;
+    atributos: Record<string, AttributeValue>;
+    costo_promedio: number;
+    precio?: number | null;
+  }[];
 }
 
 export function pesos(value: number): Cents {
@@ -121,4 +128,36 @@ export function sampleAddOn(id: string): AddOn {
     throw new Error(`Extra inexistente en el catálogo de ejemplo: ${id}`);
   }
   return addOn;
+}
+
+/** Precio general de un producto por tamaño (`precios`), sin herencia. Null si no tiene. */
+export function sampleProductPrice(productId: string, size: string): Cents | null {
+  const product = (catalog.productos as RawProduct[]).find(
+    (candidate) => candidate.id === productId,
+  );
+  if (!product) {
+    throw new Error(`Producto inexistente en el catálogo de ejemplo: ${productId}`);
+  }
+  const price = product.precios?.[size];
+  return price === undefined ? null : pesos(price);
+}
+
+/** Precio de venta de una variante (`precio`). Null si no se vende sola. */
+export function sampleVariantPrice(sku: string): Cents | null {
+  for (const article of catalog.articulos as RawArticle[]) {
+    const variant = article.variantes.find((candidate) => candidate.sku === sku);
+    if (variant) {
+      return variant.precio === undefined || variant.precio === null ? null : pesos(variant.precio);
+    }
+  }
+  throw new Error(`Variante inexistente en el catálogo de ejemplo: ${sku}`);
+}
+
+/** Precio del extra (`precio_extra`). */
+export function sampleAddOnPrice(id: string): Cents {
+  const addOn = (catalog.extras as RawAddOn[]).find((candidate) => candidate.id === id);
+  if (!addOn) {
+    throw new Error(`Extra inexistente en el catálogo de ejemplo: ${id}`);
+  }
+  return pesos(addOn.precio_extra);
 }
