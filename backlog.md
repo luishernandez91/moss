@@ -64,7 +64,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - `today(clock)` en `America/Mexico_City`; comparación de fechas sin hora.
     - Prueba: `0.01 × $110.00 = $1.10`; `4 × $0.50 = $2.00`.
 
-- [ ] **D2 · Resolución de costos heredados**
+- [x] **D2 · Resolución de costos heredados**
   - Depende: D1
   - Spec: §2
   - Criterios:

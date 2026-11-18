@@ -2,6 +2,19 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-18 · Resolución de costos heredados (D2)
+
+- **Contexto:** la especificación (§2) dice que un componente con tamaño sustituye al genérico, pero no dice cómo se emparejan, ni qué pasa si una cantidad por tamaño no incluye el tamaño pedido. El catálogo de ejemplo escribe las cantidades como objetos por tamaño, mientras que el esquema (§9) usa filas con `tamano_id`.
+- **Decisión:**
+  - `resolveCost` en `packages/domain` es una función pura. El costo de cada artículo sale de una función `CostLookup` inyectada, que por defecto es el costo promedio del catálogo; así K5 puede pasar los costos de la campaña. Los montos fijos no pasan por esa función.
+  - Una cantidad o un monto escrito como objeto por tamaño equivale a un componente por tamaño. Dentro de un mismo producto, los componentes se agrupan por clave: artículo + SKU fijo + filtro en los de artículo, y concepto en los de monto fijo. En cada grupo, el que tiene tamaño gana al genérico, y el genérico aparece como `overridden`. Entre niveles solo se sustituye con `sustituye_componente_id`, que sustituye el grupo del componente heredado (incluida su versión con tamaño). Todas las versiones de un grupo deben sustituir al mismo heredado.
+  - `NO_COMPONENT_FOR_SIZE`: un grupo genérico cuyas cantidades por tamaño no incluyen el tamaño pedido es un error, salvo que un descendiente lo sustituya para ese tamaño. Un componente con `tamano` explícito que no coincide simplemente no aplica.
+  - Los tamaños del producto (`tamanos`) se heredan del ancestro más cercano que los define. Un tamaño fuera de la lista da `SIZE_NOT_OFFERED`.
+  - Filtro de atributos: si coinciden varias variantes, se exige elegir una por id de componente. Elegir una que no cumple el filtro, o elegir para un componente que no está en la receta, es un error.
+  - Las líneas sustituidas se devuelven para que la pantalla 8 las muestre tachadas. Si su variante no se puede resolver, su costo queda en `null`; nunca suman al total.
+  - El extra aplica si `aplica_a` contiene el producto o alguno de sus ancestros. Sus líneas van al final, con origen `own`.
+- **Consecuencias:** C2 y la UI de recetas deben respetar estas reglas. Al guardar una receta conviene validar en la API los mismos errores, para no descubrirlos hasta el cálculo. El caso de §10 «Nochebuena mediana + Reno = $91.50» omite la tierra; con el catálogo de ejemplo el resultado es $93.15. Ambos casos tienen prueba, y la especificación no se cambió.
+
 ## 2026-11-11 · Inversión por socio y reparto 50/50
 
 - **Contexto:** los dos socios compran insumos por separado para cada campaña.
