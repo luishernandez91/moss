@@ -2,15 +2,15 @@
  * Resolución del precio de una pieza en una venta (especificación §2 y §8, regla 5).
  * Función pura: el reloj y la lista de precios se inyectan.
  */
-import { compareDates, today, type BusinessDate, type Clock } from './business-date.js';
+import { today, type BusinessDate, type Clock } from './business-date.js';
+import { isCampaignOpen, type CampaignSchedule } from './campaign-status.js';
 import type { SizeId } from './cost-resolution.js';
 import { add, cents, marginPercent, type Cents } from './money.js';
 
 /** Origen del precio aplicado. En la base: manual, campana, lista, general. */
 export type PriceSource = 'manual' | 'campaign' | 'list' | 'general';
 
-/** Estados que se guardan; activa y por cerrar se derivan de las fechas. */
-export type PersistedCampaignStatus = 'draft' | 'scheduled' | 'closed' | 'cancelled';
+export type { PersistedCampaignStatus } from './campaign-status.js';
 
 export type MarginWarning = 'below_cost' | 'below_min_margin';
 
@@ -29,11 +29,8 @@ export interface PriceListQuery {
 /** Lista de precios por canal o cantidad (fase 2). Devuelve null si la lista no tiene precio. */
 export type PriceListLookup = (query: PriceListQuery) => Cents | null;
 
-export interface PricingCampaign {
-  status: PersistedCampaignStatus;
-  startDate: BusinessDate | null;
-  endDate: BusinessDate | null;
-}
+/** Campaña de la venta; su estado se deriva con `deriveCampaignStatus` (D4). */
+export type PricingCampaign = CampaignSchedule;
 
 export interface ResolvePriceInput {
   item: PricedItem;
@@ -143,19 +140,6 @@ export function evaluateMargin(
 }
 
 /**
- * Activa o por cerrar: programada y con el inicio ya alcanzado. La fecha fin no cierra
- * la ventana; después del fin la campaña queda por cerrar hasta que los socios la cierran.
- * Se sustituirá por el estado derivado de D4 cuando exista.
- */
-function isActiveOrClosing(campaign: PricingCampaign, date: BusinessDate): boolean {
-  return (
-    campaign.status === 'scheduled' &&
-    campaign.startDate !== null &&
-    compareDates(date, campaign.startDate) >= 0
-  );
-}
-
-/**
  * Orden: ajuste manual > precio especial de campaña (activa o por cerrar, sin revisión
  * pendiente) > lista de precios > precio general. El extra se suma salvo en el manual.
  */
@@ -209,7 +193,7 @@ export function resolvePrice(input: ResolvePriceInput): PriceResolution {
   let ignoredSpecialPrice: IgnoredSpecialPrice | null = null;
   let specialApplies = false;
   if (special !== null && !manual) {
-    if (!isActiveOrClosing(campaign, date)) {
+    if (!isCampaignOpen(campaign, input.clock)) {
       ignoredSpecialPrice = 'campaign_not_open';
     } else if (specialPrice!.requiresReview) {
       ignoredSpecialPrice = 'requires_review';

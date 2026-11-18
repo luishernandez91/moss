@@ -39,7 +39,7 @@ packages/contracts Esquemas Zod y tipos compartidos entre web y API.
 docs/             Especificación, decisiones y diseño.
 ```
 
-Dependencias permitidas: `web → contracts, domain` · `api → contracts, domain` · `contracts → domain` (solo tipos) · `domain → nada`. Nunca importes de `apps/*` dentro de `packages/*`.
+Dependencias permitidas: `web → contracts, domain` · `api → contracts, domain` · `contracts → domain` (tipos y constantes, sin lógica) · `domain → nada`. Nunca importes de `apps/*` dentro de `packages/*`.
 
 ## Comandos
 

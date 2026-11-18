@@ -1,25 +1,17 @@
+import {
+  CAMPAIGN_STATUSES,
+  PERSISTED_CAMPAIGN_STATUSES,
+  type CampaignStatus,
+  type PersistedCampaignStatus,
+} from '@moss/domain';
 import { z } from 'zod';
 
-/** Estados que se guardan en la base. `active` y `closing` se derivan de las fechas. */
-export const persistedCampaignStatusSchema = z.enum(['draft', 'scheduled', 'closed', 'cancelled']);
-export type PersistedCampaignStatus = z.infer<typeof persistedCampaignStatusSchema>;
+/** Estados que se guardan en la base. `active` y `closing` se derivan de las fechas (D4). */
+export const persistedCampaignStatusSchema = z.enum(PERSISTED_CAMPAIGN_STATUSES);
 
-export const campaignStatusSchema = z.enum([
-  'draft',
-  'scheduled',
-  'active',
-  'closing',
-  'closed',
-  'cancelled',
-]);
-export type CampaignStatus = z.infer<typeof campaignStatusSchema>;
+/** Estado derivado que la API devuelve y la web muestra. */
+export const campaignStatusSchema = z.enum(CAMPAIGN_STATUSES);
 
-/** Etiquetas en español para la interfaz. */
-export const campaignStatusLabels: Record<CampaignStatus, string> = {
-  draft: 'Borrador',
-  scheduled: 'Programada',
-  active: 'Activa',
-  closing: 'Por cerrar',
-  closed: 'Cerrada',
-  cancelled: 'Cancelada',
-};
+// El dominio es el único dueño de los estados y de sus etiquetas en español.
+export type { CampaignStatus, PersistedCampaignStatus };
+export { campaignStatusLabels } from '@moss/domain';

@@ -2,6 +2,21 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-18 · Estados de campaña (D4)
+
+- **Contexto:** §5 define seis estados y lo que permite cada uno, pero no dice si un borrador con fechas incompletas es válido, si se puede programar una campaña cuyo inicio ya pasó, qué pasa con el precio especial de una campaña con datos inválidos, ni quién es dueño de la lista de estados (estaba duplicada en `packages/contracts` y en `price-resolution.ts`).
+- **Decisión:**
+  - `packages/domain/src/campaign-status.ts` es el único dueño de los estados: `PERSISTED_CAMPAIGN_STATUSES`, `CAMPAIGN_STATUSES` y `campaignStatusLabels`. `packages/contracts` construye sus `z.enum` con esas listas y reexporta las etiquetas (confirmado con el usuario). Para eso `contracts` depende de `@moss/domain` y la regla de dependencias de `AGENTS.md` pasa de «solo tipos» a «tipos y constantes, sin lógica».
+  - `deriveCampaignStatus(campaign, clock)`: `scheduled` antes del inicio, `active` entre inicio y fin (ambos incluidos), `closing` después del fin; borrador, cerrada y cancelada no cambian con la fecha. «Hoy» sale de `today(clock)` en `America/Mexico_City`.
+  - Un borrador no valida fechas («sin validar fechas», §5): puede no tenerlas, tener una sola o tener el inicio después del fin. Cualquier otro estado guardado exige ambas con inicio ≤ fin; si no, `MISSING_DATES` o `INVALID_DATE_RANGE`.
+  - `transitionCampaign(campaign, action, { clock, reason })` decide sobre el estado derivado y devuelve el nuevo estado guardado y la entrada de bitácora `{ action, reason }`; la API agrega usuario y fecha (§8, regla 11). Tabla: `schedule` borrador → programada; `unschedule` y `cancel` solo desde programada (antes del inicio); `close` solo desde por cerrar; `reopen` cerrada → programada, que se deriva como por cerrar o activa. Cualquier otro par es `TRANSITION_NOT_ALLOWED` con un mensaje que nombra la acción y el estado actual.
+  - Programar una campaña con inicio en el pasado se permite: queda activa o por cerrar de inmediato (confirmado con el usuario).
+  - El motivo es opcional en todas las acciones y obligatorio al reabrir (`REASON_REQUIRED`); se guarda recortado, y uno vacío como `null`.
+  - Eliminar no es una transición, porque no queda estado que guardar: `assertCanDelete` solo permite borradores.
+  - Permisos por estado derivado: `canEdit` (borrador, programada), `canExtendEndDate` (activa; el empalme es D5), `canRegisterMovements` (activa, por cerrar), `canClose` (por cerrar), `canClone` (cerrada, cancelada), `canDelete` (borrador), `isReadOnly` (cerrada, cancelada).
+  - `resolvePrice` usa `isCampaignOpen`, que no lanza: una campaña con fechas inválidas no está abierta y su precio especial no aplica (confirmado con el usuario). Cambia el caso «programada con inicio pero sin fin», que en D3 aplicaba el precio especial; ninguna prueba de D3 lo cubría.
+- **Consecuencias:** la API debe derivar el estado con el reloj inyectado antes de cada acción y guardar la entrada de bitácora que devuelve la transición. La web usa los helpers `can*` para mostrar u ocultar acciones. El cierre automático tras N días de gracia (§5, opcional) no está en D4.
+
 ## 2026-11-18 · Resolución de precio en una venta (D3)
 
 - **Contexto:** la especificación (§2, §8 regla 5) da el orden de resolución, pero no dice cómo entra el extra en el precio, si aplica un precio especial copiado al clonar y marcado para revisión, ni si el precio general se hereda del producto padre. Además, D3 necesita saber si la campaña está activa o por cerrar antes de que exista D4.

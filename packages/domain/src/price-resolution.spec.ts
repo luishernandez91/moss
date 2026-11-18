@@ -486,3 +486,42 @@ describe('resolvePrice · errores', () => {
     );
   });
 });
+
+describe('resolvePrice · precio especial con el estado derivado (D4)', () => {
+  const special = { price: pesos(100), requiresReview: false };
+  /** Nochebuena 2026: 1 nov – 24 dic 2026. */
+  const nochebuena2026 = (status: PersistedCampaignStatus): ResolvePriceInput['campaign'] => ({
+    status,
+    startDate: businessDate('2026-11-01'),
+    endDate: businessDate('2026-12-24'),
+  });
+  /** 26 dic 2026, mediodía en Ciudad de México: la campaña ya pasó su fin. */
+  const AFTER_END = clockAt('2026-12-26T18:00:00Z');
+
+  it('aplica en una campaña por cerrar', () => {
+    const result = resolvePrice(
+      nochebuenaChica({
+        campaign: nochebuena2026('scheduled'),
+        specialPrice: special,
+        clock: AFTER_END,
+      }),
+    );
+
+    expect(result).toMatchObject({ appliedPrice: 10000, source: 'campaign' });
+  });
+
+  it.each<PersistedCampaignStatus>(['draft', 'cancelled'])(
+    'no aplica en una campaña %s aunque hoy esté dentro de sus fechas',
+    (status) => {
+      const result = resolvePrice(
+        nochebuenaChica({
+          campaign: nochebuena2026(status),
+          specialPrice: special,
+          clock: clockAt('2026-11-18T18:00:00Z'),
+        }),
+      );
+
+      expect(result).toMatchObject({ source: 'general', ignoredSpecialPrice: 'campaign_not_open' });
+    },
+  );
+});

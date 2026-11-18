@@ -82,7 +82,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Devuelve precio, origen y margen sobre el costo.
     - Aviso si el precio queda bajo el costo o bajo el margen mínimo configurado. Prueba: $50 sobre $53.10 da aviso de margen negativo.
 
-- [ ] **D4 · Estados de campaña**
+- [x] **D4 · Estados de campaña**
   - Depende: D1
   - Spec: §5
   - Criterios:
