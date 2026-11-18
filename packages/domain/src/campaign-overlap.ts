@@ -1,5 +1,5 @@
 /**
- * Empalme de campañas (especificación §5 pantalla 12, §6, §7 pantalla 24 y §8 regla 6; AGENTS.md, regla 6).
+ * Empalme de campañas (especificación §5 pantalla 12, §6 y §8 regla 6; AGENTS.md, regla 6).
  * Misma semántica que la restricción de PostgreSQL de K1:
  * `EXCLUDE USING gist (type WITH =, daterange(start_date, end_date, '[]') WITH &&)` para el estado
  * guardado `scheduled`. Rangos cerrados con ambos extremos incluidos y sin reloj: programada, activa
@@ -46,20 +46,6 @@ export interface CampaignOverlapConflict {
   endDate: BusinessDate;
 }
 
-/**
- * Regla de empalme de la pantalla 24 ya resuelta para el tipo de la candidata. Como solo se comparan
- * campañas del mismo tipo, la configuración por tipo se reduce a este booleano.
- */
-export interface OverlapPolicy {
-  enabled: boolean;
-}
-
-export const DEFAULT_OVERLAP_POLICY: Readonly<OverlapPolicy> = { enabled: true };
-
-export interface OverlapOptions {
-  policy?: OverlapPolicy;
-}
-
 export class CampaignOverlapError extends Error {
   override name = 'CampaignOverlapError';
   readonly code = 'OVERLAP' as const;
@@ -83,19 +69,15 @@ export function rangesOverlap(
 
 /**
  * Valida las fechas de la candidata como programada (D4) y devuelve las campañas programadas del
- * mismo tipo con las que se empalma, ordenadas por inicio, fin, nombre e id. Con la regla
- * desactivada devuelve `[]` después de validar. Una campaña participante con fechas inválidas lanza
- * el error de D4: un dato roto debe fallar visible.
+ * mismo tipo con las que se empalma, ordenadas por inicio, fin, nombre e id. La regla no es
+ * configurable. Una campaña participante con fechas inválidas lanza el error de D4: un dato roto
+ * debe fallar visible.
  */
 export function findCampaignOverlaps(
   candidate: OverlapCandidate,
   existing: readonly OverlapCampaign[],
-  options: OverlapOptions = {},
 ): CampaignOverlapConflict[] {
   const { start, end } = scheduledDates(candidate);
-  const policy = options.policy ?? DEFAULT_OVERLAP_POLICY;
-  if (!policy.enabled) return [];
-
   const conflicts: CampaignOverlapConflict[] = [];
   for (const other of existing) {
     if (other.status !== 'scheduled') continue;
@@ -121,9 +103,8 @@ export function findCampaignOverlaps(
 export function assertNoCampaignOverlap(
   candidate: OverlapCandidate,
   existing: readonly OverlapCampaign[],
-  options: OverlapOptions = {},
 ): void {
-  const conflicts = findCampaignOverlaps(candidate, existing, options);
+  const conflicts = findCampaignOverlaps(candidate, existing);
   const [first] = conflicts;
   if (first === undefined) return;
   const { start, end } = scheduledDates(candidate);

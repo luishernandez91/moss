@@ -2,6 +2,12 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-18 · Empalme no configurable
+
+- **Contexto:** la pantalla 24 permitía desactivar el empalme por tipo de campaña, y D5 lo modeló con una política `{ enabled }`. Eso chocaba con la restricción de K1 y §8 regla 6, que no tiene excepciones: con la regla desactivada, el dominio aceptaba una campaña que la base rechazaba.
+- **Decisión:** dos campañas del mismo tipo nunca se empalman, y no es configurable. Para correr dos campañas a la vez se usan tipos distintos (ej. `temporada` y `evento`). `findCampaignOverlaps` y `assertNoCampaignOverlap` ya no reciben política y siempre validan el empalme dentro del mismo tipo. Esta entrada reemplaza la parte de la política de la entrada de D5.
+- **Consecuencias:** la restricción de K1 `EXCLUDE USING gist (type WITH =, daterange(start_date, end_date, '[]') WITH &&) WHERE (status = 'scheduled')` queda incondicional, igual que el dominio. La pantalla 24 solo administra los tipos de campaña, sin interruptor de empalme (la imagen de referencia todavía lo muestra; ver `docs/diseno/pantallas/README.md`). Se cierra la pregunta abierta sobre el interruptor contra la restricción.
+
 ## 2026-11-18 · Empalme de campañas (D5)
 
 - **Contexto:** §5 (pantalla 12), §6 y §8 regla 6 piden validar el empalme por tipo de campaña en dominio con la misma semántica que la restricción `EXCLUDE USING gist (type WITH =, daterange(start_date, end_date, '[]') WITH &&)` de K1. §7 (pantalla 24) hace la regla configurable «activada por defecto, por tipo». La especificación no dice cómo se valida la candidata (un borrador no valida fechas en D4), qué pasa con datos rotos ni en qué acciones corre la validación.

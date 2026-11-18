@@ -154,7 +154,7 @@ La campaña no se bloquea al pasar la fecha fin: queda "por cerrar" para registr
 - Paso 1: nombre, tipo, presupuesto, fechas y % de reinversión.
 - Paso 2: plantas y productos de la campaña, con costos copiados del catálogo y editables.
 - Paso 3: revisión, guardar como borrador o programar.
-- Validación de empalme entre campañas programadas, activas y por cerrar del mismo tipo (configurable). Los borradores no se validan.
+- Validación de empalme entre campañas programadas, activas y por cerrar del mismo tipo; siempre activa. Para correr dos campañas a la vez se usan tipos distintos. Los borradores no se validan.
 - Al clonar: copia nombre, presupuesto, % de reinversión, notas e items, con la opción de tomar costos de la original o del catálogo. No copia gastos, producciones, ventas, inventario sobrante ni fechas. Los precios especiales se copian marcados para revisión.
 
 **13. Detalle de campaña** · MVP
@@ -246,7 +246,7 @@ Cada pedido aceptado crea una campaña de tipo evento, con presupuesto igual a s
 **24. Configuración** · MVP
 
 - Tamaños y categorías de gasto.
-- Tipos de campaña y regla de empalme (activada por defecto, por tipo).
+- Tipos de campaña. El empalme siempre se impide dentro del mismo tipo; no es configurable.
 - Valores por defecto: participación en la ganancia (50/50), % de reinversión (0%, opcional por campaña), margen mínimo para el aviso (30%), % de anticipo mínimo (50%) y días de gracia para el cierre automático.
 - Usuarios y su socio.
 
