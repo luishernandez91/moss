@@ -74,7 +74,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Pruebas: Kokedama Nochebuena chica = $53.10; Nochebuena mediana + Reno = $91.50; Kokedama Helecho sustituye fabricación.
     - Rechaza árboles de más de 3 niveles y ciclos.
 
-- [ ] **D3 · Resolución de precio**
+- [x] **D3 · Resolución de precio**
   - Depende: D1
   - Spec: §2
   - Criterios:

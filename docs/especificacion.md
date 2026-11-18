@@ -305,7 +305,7 @@ producciones(id, campana_id, producto_id, tamano_id, extra_id NULL, variante_ele
          cantidad, costo_unitario_snapshot, fabricado_por_socio_id, fecha)
 ventas(id, campana_id, fecha, canal, metodo_pago)
 venta_items(id, venta_id, producto_id NULL, variante_id NULL, tamano_id NULL, extra_id NULL,
-         cantidad, costo_unitario_snapshot, precio_lista, precio_aplicado,
+         cantidad, costo_unitario_snapshot, precio_lista NULL, precio_aplicado,
          origen_precio ENUM('general','lista','campana','manual'), motivo_ajuste NULL)
 
 -- Socios

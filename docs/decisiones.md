@@ -2,6 +2,22 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-18 · Resolución de precio en una venta (D3)
+
+- **Contexto:** la especificación (§2, §8 regla 5) da el orden de resolución, pero no dice cómo entra el extra en el precio, si aplica un precio especial copiado al clonar y marcado para revisión, ni si el precio general se hereda del producto padre. Además, D3 necesita saber si la campaña está activa o por cerrar antes de que exista D4.
+- **Decisión:**
+  - `resolvePrice` en `packages/domain` es una función pura. Recibe el costo unitario ya resuelto (D2 o snapshot), el precio general, el precio especial del item de campaña, el ajuste manual y el margen mínimo configurado. El reloj se inyecta y «hoy» sale de `today()` en `America/Mexico_City`. La lista de precios (fase 2) es una función `PriceListLookup` inyectada que recibe el artículo, la cantidad, la fecha y el canal.
+  - Orden: manual (exige motivo no vacío) > especial de campaña > lista > general. Sin ninguno → `NO_PRICE`. Se devuelven el precio aplicado, su origen (`manual`, `campaign`, `list`, `general`; en la base `manual`, `campana`, `lista`, `general`), el precio de lista (lista o general, aunque gane otro origen), el margen y el aviso.
+  - Extras (confirmado con el usuario): el `precio_extra` se suma al precio general, de lista o especial. El ajuste manual es el precio total de la pieza.
+  - Un precio especial con `requiere_revision` no aplica hasta revisarse (confirmado con el usuario). El resultado indica por qué se ignoró un precio especial (`campaign_not_open` o `requires_review`).
+  - El precio general no se hereda del producto padre (confirmado con el usuario). Un ajuste manual o un precio especial vigente bastan aunque no haya precio general ni de lista; en ese caso `listPrice` es null y `venta_items.precio_lista` admite NULL (confirmado con el usuario; §9 se actualizó).
+  - La lista se consulta con la fecha de la venta (`saleDate`, por defecto hoy) para respetar su vigencia en ventas atrasadas. La ventana del precio especial usa hoy, porque el estado de la campaña es el actual.
+  - Un extra solo aplica a productos: con una variante vendida sola es `ADDON_NOT_ALLOWED`. La compatibilidad del extra con el producto la valida D2 al calcular el costo.
+  - Un monto que no es entero de centavos da `INVALID_AMOUNT` y uno negativo `NEGATIVE_AMOUNT`. Se validan todos los orígenes aunque gane el manual: el precio de lista hace falta para el snapshot y un dato inválido del catálogo debe fallar visible.
+  - Activa o por cerrar ⇔ estado guardado `scheduled` y hoy ≥ inicio. La fecha fin no cierra la ventana: después del fin la campaña queda por cerrar. Es un helper interno; D4 lo sustituirá con el estado derivado.
+  - Margen sobre el precio con `marginPercent`. El aviso se aplica al precio aplicado de cualquier origen: `below_cost` si precio < costo; si no, `below_min_margin` si (precio − costo) × 100 < margen mínimo × precio, sin dividir; el producto con un mínimo decimal (11.3%) se corrige a 12 cifras para que un margen igual al mínimo no avise por error de flotantes. Precio igual al costo avisa margen mínimo; precio y costo en $0 no avisan. `evaluateMargin` se exporta para el semáforo de K3.
+- **Consecuencias:** K3 y K6 usan `evaluateMargin` y `resolvePrice`; la API debe pasar el costo con el extra incluido y el precio del extra por separado. El semáforo (verde, ámbar, rojo) puede mapearse a sin aviso, `below_min_margin` y `below_cost`. Cuando llegue D4, el helper de campaña abierta debe reemplazarse por el estado derivado.
+
 ## 2026-11-18 · Resolución de costos heredados (D2)
 
 - **Contexto:** la especificación (§2) dice que un componente con tamaño sustituye al genérico, pero no dice cómo se emparejan, ni qué pasa si una cantidad por tamaño no incluye el tamaño pedido. El catálogo de ejemplo escribe las cantidades como objetos por tamaño, mientras que el esquema (§9) usa filas con `tamano_id`.
