@@ -43,13 +43,38 @@ Cada historia es una unidad de trabajo para un agente: una rama, un PR. El orden
     - Una prueba e2e con Playwright que abre la app.
 
 - [ ] **E0.5 · Autenticación**
-  - Depende: E0.3, E0.4
+  - Depende: E0.3, E0.4, E0.6
   - Spec: pantalla 1
   - Criterios:
     - Login con correo y contraseña (hash argon2), sesión en cookie `httpOnly`, `secure`, `sameSite=lax`.
     - Usuario ligado a un socio. Rutas de API protegidas por defecto.
     - Script para crear los dos usuarios iniciales; sin registro público.
     - Recuperación de contraseña: fuera del MVP si no hay correo configurado; dejar la decisión anotada.
+
+- [ ] **E0.6 · Sistema visual y shell**
+  - Depende: E0.4
+  - Spec: `docs/diseno/pantallas/README.md`, `docs/diseno/pantallas/componentes/` y, como muestra, las pantallas 02, 11, 13 y 16
+  - Objetivo: definir una sola vez el lenguaje visual de las imágenes de referencia, para que cada historia de UI lo use en lugar de reinterpretarlo.
+  - Criterios:
+    - Tokens extraídos de las imágenes y definidos como variables CSS sobre el tema de Angular Material, en `apps/web/src/styles/`:
+      - colores: primario musgo, superficies, bordes, texto principal y secundario, y semánticos (ganancia, aviso, pérdida);
+      - tipografía: familia, pesos y escala de tamaños;
+      - espaciado, radios y sombras.
+    - Tipografía: identifica la de las imágenes y empaquétala localmente, igual que Roboto hoy. Si requiere una dependencia nueva, pídela antes.
+    - `docs/diseno/sistema-visual.md` documenta cada token y en qué casos se usa.
+    - Shell desktop según `componentes/menu-lateral.png`: grupos Pedidos, Catálogo y Negocio, el elemento activo resaltado y el bloque del usuario abajo. Las opciones de fase 2 (Clientes, Calendario, Inventario, Listas de precios, Reportes) se ocultan con una marca en `navigation.ts` hasta que exista su historia.
+    - Shell mobile según `componentes/barra-inferior.png`: Inicio, Campañas, Vender al centro destacado, Catálogo y Más.
+    - Componentes base en `apps/web/src/app/ui/`, sin lógica de negocio y con prueba unitaria cada uno:
+      - `KpiCard`: etiqueta, monto y detalle opcional;
+      - `StatusPill`: los 6 estados de campaña con sus colores y etiquetas de `@moss/contracts`;
+      - `MarginBadge`: verde sin aviso, ámbar con `below_min_margin` y rojo con `below_cost`, según `evaluateMargin` de D3;
+      - `BudgetBar`: barra de presupuesto con aviso a partir del 85%;
+      - `MoneyText`: `formatMoney`, con verde para positivos y rojo para negativos si se pide;
+      - `PageHeader` y `EmptyState`.
+    - Ruta `/ui`, solo en desarrollo, que muestra todos los componentes con datos de ejemplo de la especificación.
+    - Capturas de Playwright del shell y de `/ui` a 390 px y 1440 px, sin desbordes ni textos cortados, comparadas con las imágenes de `componentes/`.
+    - `AGENTS.md`: agregar en "Cómo trabajar" que en historias de UI se usan los componentes de `ui/` y los tokens, y que las capturas de Playwright se comparan con las imágenes de la pantalla. Así lo sigue también Codex, que no lee `CLAUDE.md`.
+    - La definición de terminado de este backlog agrega la comparación con las imágenes de referencia.
 
 ---
 
@@ -127,7 +152,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
 ## Fase 1 · MVP: catálogo
 
 - [ ] **C1 · Tipos de artículo y atributos**
-  - Depende: E0.5
+  - Depende: E0.5, E0.6
   - Spec: pantalla 3
   - Criterios:
     - Tablas, endpoints CRUD y pantalla.
@@ -135,7 +160,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - No se puede borrar un atributo usado por artículos; solo desactivar.
 
 - [ ] **C2 · Artículos y variantes**
-  - Depende: C1
+  - Depende: C1, E0.6
   - Spec: pantallas 4 y 5
   - Criterios:
     - Atributos fijos y de variante validados contra el tipo (en `contracts`, reutilizado por web y API).
@@ -144,12 +169,12 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - `db:seed` carga `docs/datos/catalogo-ejemplo.json`.
 
 - [ ] **C3 · Tamaños**
-  - Depende: E0.5
+  - Depende: E0.5, E0.6
   - Spec: pantalla 24
   - Criterios: CRUD con orden; mini, chico, mediano, grande sembrados.
 
 - [ ] **C4 · Productos y recetas**
-  - Depende: C2, C3, D2
+  - Depende: C2, C3, D2, E0.6
   - Spec: pantallas 7 y 8
   - Criterios:
     - Árbol de productos hasta 3 niveles; consulta recursiva.
@@ -158,7 +183,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Pantalla de detalle con selector de tamaño y desglose (heredado en gris, sustituido tachado).
 
 - [ ] **C5 · Extras**
-  - Depende: C4
+  - Depende: C4, E0.6
   - Spec: pantalla 9
   - Criterios: CRUD con componentes, minutos de armado, precio extra y productos a los que aplica.
 
@@ -167,7 +192,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
 ## Fase 1 · MVP: campañas y operación
 
 - [ ] **K1 · Campañas: modelo y lista**
-  - Depende: D4, D5, E0.5
+  - Depende: D4, D5, E0.5, E0.6
   - Spec: pantalla 11, §5
   - Criterios:
     - Tabla con restricción `EXCLUDE USING gist (type WITH =, daterange(start_date, end_date, '[]') WITH &&)` para estados que no sean borrador, cerrada o cancelada.
@@ -175,7 +200,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Lista con filtro por estado y pastillas; vista de línea de tiempo.
 
 - [ ] **K2 · Crear, editar, programar y clonar**
-  - Depende: K1, D8, C4
+  - Depende: K1, D8, C4, E0.6
   - Spec: pantalla 12
   - Criterios:
     - Asistente de 3 pasos; guardar como borrador sin fechas.
@@ -184,7 +209,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Bitácora `campana_eventos` en cada transición.
 
 - [ ] **K3 · Detalle de campaña**
-  - Depende: K2
+  - Depende: K2, E0.6
   - Spec: pantalla 13
   - Criterios:
     - KPIs, pestañas Productos, Gastos, Producciones, Ventas, Costos fijos, Inversión por socio, Bitácora.
@@ -193,7 +218,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Solo lectura completa en cerrada o cancelada, también en API.
 
 - [ ] **K4 · Registrar gasto**
-  - Depende: K3
+  - Depende: K3, E0.6
   - Spec: pantalla 14
   - Criterios:
     - Formulario con Signal Forms; foto del ticket opcional (almacenamiento local en desarrollo).
@@ -202,14 +227,14 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Rechazado si la campaña no admite movimientos.
 
 - [ ] **K5 · Registrar producción**
-  - Depende: K3, D2
+  - Depende: K3, D2, E0.6
   - Spec: pantalla 15
   - Criterios:
     - Elige subproducto, tamaño, extra, cantidad y variante cuando la receta lo pide.
     - Guarda `costo_unitario_snapshot` calculado con la resolución de costos (snapshot > campaña > catálogo).
 
 - [ ] **K6 · Venta rápida**
-  - Depende: K3, D3
+  - Depende: K3, D3, E0.6
   - Spec: pantalla 16
   - Criterios:
     - Diseñada primero para 390 px: tarjetas grandes, tamaño y extras con un toque, carrito fijo abajo.
@@ -217,7 +242,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Guarda snapshots de costo y precio con origen. Registrar una venta de 2 piezas toma 4 toques o menos.
 
 - [ ] **K7 · Cierre y reparto**
-  - Depende: K4, K5, K6, D6, D7, S1
+  - Depende: K4, K5, K6, D6, D7, S1, E0.6
   - Spec: pantalla 17
   - Criterios:
     - Captura de inventario sobrante; producto de temporada en $0.
@@ -230,17 +255,17 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
 ## Fase 1 · MVP: socios, tablero y configuración
 
 - [ ] **S1 · Socios**
-  - Depende: E0.5
+  - Depende: E0.5, E0.6
   - Spec: pantalla 22
   - Criterios: participación en la ganancia 50/50 por defecto, editable y validada a 100%; por campaña: inversión, trabajo pagado, ganancia recibida y total.
 
 - [ ] **S2 · Configuración**
-  - Depende: C3
+  - Depende: C3, E0.6
   - Spec: pantalla 24
   - Criterios: categorías de gasto, tipos de campaña, regla de empalme, participación por defecto (50/50), % reinversión por defecto (0%), margen mínimo, % anticipo mínimo, días de gracia.
 
 - [ ] **S3 · Dashboard**
-  - Depende: K3
+  - Depende: K3, E0.6
   - Spec: pantalla 2
   - Criterios: KPIs globales, ventas semanales, campañas activas con presupuesto y alertas (≥ 85% presupuesto, margen bajo, campañas por cerrar).
 
