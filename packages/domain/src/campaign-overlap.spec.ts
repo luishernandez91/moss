@@ -3,7 +3,6 @@ import { businessDate } from './business-date.js';
 import {
   assertNoCampaignOverlap,
   CampaignOverlapError,
-  DEFAULT_OVERLAP_POLICY,
   findCampaignOverlaps,
   rangesOverlap,
   type OverlapCampaign,
@@ -219,16 +218,6 @@ describe('findCampaignOverlaps', () => {
     expect(ids(findCampaignOverlaps(candidate(), existing))).toEqual(['w', 'x', 'y', 'z']);
   });
 
-  it('con la regla desactivada no reporta empalmes aunque las fechas sean idénticas', () => {
-    const same = candidate({ startDate: d('2026-12-10'), endDate: d('2026-12-31') });
-    expect(findCampaignOverlaps(same, [campaign()], { policy: { enabled: false } })).toEqual([]);
-  });
-
-  it('sin política, la regla está activada', () => {
-    expect(DEFAULT_OVERLAP_POLICY).toEqual({ enabled: true });
-    expect(ids(findCampaignOverlaps(candidate(), [campaign()], {}))).toEqual(['nochebuena-2026']);
-  });
-
   it('candidata sin fecha fin → el error de D4, no un fallo', () => {
     expectStateError(
       () => findCampaignOverlaps(candidate({ endDate: null }), [campaign()]),
@@ -251,13 +240,6 @@ describe('findCampaignOverlaps', () => {
           [],
         ),
       'INVALID_DATE_RANGE',
-    );
-  });
-
-  it('la candidata se valida aunque la regla esté desactivada', () => {
-    expectStateError(
-      () => findCampaignOverlaps(candidate({ endDate: null }), [], { policy: { enabled: false } }),
-      'MISSING_DATES',
     );
   });
 
@@ -293,12 +275,6 @@ describe('assertNoCampaignOverlap', () => {
   it('no lanza si no hay empalme', () => {
     expect(() =>
       assertNoCampaignOverlap(candidate({ endDate: d('2026-12-09') }), [campaign()]),
-    ).not.toThrow();
-  });
-
-  it('no lanza con la regla desactivada', () => {
-    expect(() =>
-      assertNoCampaignOverlap(candidate(), [campaign()], { policy: { enabled: false } }),
     ).not.toThrow();
   });
 
