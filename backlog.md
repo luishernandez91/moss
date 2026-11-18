@@ -91,7 +91,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - `canEdit`, `canRegisterMovements`, `canClose`, `canClone` por estado.
     - Reabrir exige motivo.
 
-- [ ] **D5 · Empalme de campañas**
+- [x] **D5 · Empalme de campañas**
   - Depende: D4
   - Criterios:
     - Detecta empalme entre rangos cerrados `[inicio, fin]` del mismo tipo para estados programada, activa y por cerrar; ignora borradores, cerradas y canceladas.
@@ -264,4 +264,5 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
 
 - ¿Dónde se despliega? (VPS, Railway, Fly.io). Define el almacenamiento de fotos de tickets.
 - ¿Se necesita trabajar sin conexión en el tianguis? Si sí, la venta rápida necesita cola local y sincronización; hoy no está en el alcance.
+- Regla de empalme configurable contra la restricción de la base (K1): la pantalla 24 permite desactivar el empalme por tipo de campaña, pero K1 y §8 regla 6 piden un `EXCLUDE` incondicional, que seguiría rechazando las campañas de un tipo con la regla desactivada. Propuesta para decidir en K1: una columna por campaña copiada del tipo al programar (ej. `overlap_check`) y una restricción parcial `WHERE (status = 'scheduled' AND overlap_check)`; la alternativa es quitar la opción de la pantalla 24.
 - Pérdida dividida 50/50 (regla actual): confirmar con los socios que, si un socio invirtió poco, puede terminar debiendo dinero al cerrar una campaña con pérdida. La alternativa es repartir lo que haya en proporción a lo invertido.

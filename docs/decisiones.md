@@ -2,6 +2,19 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-18 · Empalme de campañas (D5)
+
+- **Contexto:** §5 (pantalla 12), §6 y §8 regla 6 piden validar el empalme por tipo de campaña en dominio con la misma semántica que la restricción `EXCLUDE USING gist (type WITH =, daterange(start_date, end_date, '[]') WITH &&)` de K1. §7 (pantalla 24) hace la regla configurable «activada por defecto, por tipo». La especificación no dice cómo se valida la candidata (un borrador no valida fechas en D4), qué pasa con datos rotos ni en qué acciones corre la validación.
+- **Decisión:**
+  - `packages/domain/src/campaign-overlap.ts`: `findCampaignOverlaps(candidate, existing, { policy })` devuelve todas las campañas con las que choca (`id`, `name`, `type`, `startDate`, `endDate`); `assertNoCampaignOverlap` lanza `CampaignOverlapError` con código `OVERLAP`, esas mismas campañas en `conflicts` y un mensaje en español que nombra la primera con fechas ISO (la interfaz formatea las fechas desde `conflicts`). `rangesOverlap` se exporta.
+  - Semántica igual a la base: rangos cerrados con ambos extremos incluidos (empalman si inicioA ≤ finB y inicioB ≤ finA; terminar el día que empieza la otra empalma, terminar el día antes no). Solo participan campañas con estado guardado `scheduled`, que cubre programada, activa y por cerrar; borradores, cerradas y canceladas nunca chocan. No se usa el reloj. El tipo se compara con igualdad exacta, como `type WITH =`; es el id del tipo configurado en la pantalla 24.
+  - La candidata no lleva estado: todas las acciones que validan empalme la dejan en `scheduled`, así que sus fechas se validan con `assertValidSchedule` de D4 como programada (`MISSING_DATES`, `INVALID_DATE_RANGE`), aunque la regla esté desactivada. Al editar se excluye por su id; una campaña nueva lleva `id: null`.
+  - Una campaña existente que participa (programada, del mismo tipo, distinta de la candidata) con fechas inválidas lanza el error de D4 con el mismo código, y el mensaje nombra esa campaña para que no parezca un error de las fechas que se están capturando. Un dato roto falla visible (confirmado con el usuario). Las que no participan no se validan.
+  - Política `{ enabled: boolean }`, activada por defecto. Como solo se comparan campañas del mismo tipo, la configuración por tipo de la pantalla 24 se reduce a un booleano que la API resuelve para el tipo de la candidata (confirmado con el usuario). Desactivada no reporta empalmes.
+  - Orden de los empalmes: fecha de inicio, luego fecha fin, nombre (`localeCompare` en español) e id, para que sea determinista.
+  - **Acciones que deben correr la validación cuando exista la API:** programar (`schedule`); reabrir (`reopen`, porque la campaña vuelve a `scheduled`); editar las fechas de una campaña programada; y extender la fecha fin de una activa (`canExtendEndDate`). Regresar a borrador, cancelar y cerrar no la necesitan: la campaña deja de participar.
+- **Consecuencias:** la API llama `assertNoCampaignOverlap` antes de guardar y devuelve `conflicts` para que la web nombre las campañas; K1 también debe traducir la violación de la restricción para el caso de carreras. Queda abierto para K1 cómo convive la regla configurable con el `EXCLUDE` incondicional (ver «Preguntas abiertas» en `backlog.md`).
+
 ## 2026-11-18 · Estados de campaña (D4)
 
 - **Contexto:** §5 define seis estados y lo que permite cada uno, pero no dice si un borrador con fechas incompletas es válido, si se puede programar una campaña cuyo inicio ya pasó, qué pasa con el precio especial de una campaña con datos inválidos, ni quién es dueño de la lista de estados (estaba duplicada en `packages/contracts` y en `price-resolution.ts`).
