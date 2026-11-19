@@ -2,6 +2,25 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-18 · Cálculo de cierre y reparto (D7)
+
+- **Contexto:** D7 requiere un cierre en centavos que conserve exactamente las ventas, incluyendo trabajo, reinversión, pérdidas e inventario. Faltaba definir el destino del dinero de los gastos pagados por caja y el orden del residuo.
+- **Decisión:**
+  - `calculateProfitSplit` en `packages/domain/src/profit-split.ts` es pura y usa exclusivamente `add`, `subtract`, `percentage` y `allocate` de `money.ts` para operar montos. Recibe ventas, gastos con pagador explícito (`partner` con ID o `cash_box`), dos socios con trabajo pendiente y participación (50% por socio por defecto), reinversión (0% por defecto) e inventario ya valuado.
+  - Inversión personal = gastos pagados por ese socio. Resultado = ventas − todos los gastos − todo el trabajo. Se recupera íntegra la inversión, se paga el trabajo, se aparta la reinversión solo con resultado positivo y se reparte el restante según participaciones. La recuperación se muestra íntegra y la pérdida por separado en `resultShare`; el total puede ser negativo y `owes` permite mostrar «Debe aportar».
+  - **Caja (confirmado con los socios):** recupera íntegros los gastos que pagó, incluso con pérdida, como inversionista sin participación en el resultado. Los socios absorben toda la pérdida según sus participaciones porque el dinero de la caja pertenece a ambos. `cashBoxRecovery` y `reinvestment` se devuelven separados; `cashBoxTotal` es su suma. Siempre se comprueba que totales de socios + `cashBoxTotal` = ventas; un descuadre lanza `UNBALANCED_SPLIT`.
+  - Ejemplos de caja: ventas $100 y gasto de caja $20 → resultado $80, $40 por socio y recuperación de caja $20. Ventas $10 y gasto de caja $20 → resultado −$10, cada socio debe aportar $5 y caja recupera $20. Caso mixto: ventas $3,600, Luis $1,400, otro socio $60 más trabajo $600, gasto de caja $100 y reinversión 30% → resultado $1,440, $504 de ganancia por socio, totales $1,904 / $1,164 y caja $532 (recuperación $100 + reinversión $432).
+  - Residuo: ordenar por ID ascendente mediante comparación de cadenas UTF-16, sin configuración regional, antes de llamar `allocate`; el primer socio con participación positiva recibe el centavo sobrante, también en pérdidas (con signo negativo). La salida sigue ese orden y no depende del orden de entrada. Participación cero nunca recibe residuo.
+  - Reinversión: `percentage` redondea half-up una vez, antes del reparto. Inventario: se devuelve separado y se calcula `resultIncludingInventory = result + leftoverInventory` solo como información. Nunca cambia pagos ni habilita reinversión. El llamador valúa el inventario de temporada en $0.
+  - Validaciones: exactamente dos IDs distintos y no vacíos; pagadores conocidos; montos de entrada enteros seguros y no negativos; porcentajes finitos entre 0 y 100, con participaciones que suman 100. Se permiten porcentajes decimales y 0/100. `ProfitSplitError` lleva código y mensaje en español; los desbordamientos monetarios conservan `MoneyError`.
+- **Consecuencias:** el llamador pasa trabajo pendiente sin duplicarlo en los gastos; el costo de receta no entra al cálculo. D7 solo calcula y no muta campañas: la autorización y transición de cierre siguen en D4, y K7 orquestará persistencia y bloqueo. Sin dependencias nuevas ni cambios de esquema. Pruebas con §10, el caso real de Nochebuena, caja, residuo, inventario, validaciones e igualdad exacta con ventas.
+
+## 2026-11-18 · Pérdida dividida 50/50 confirmada
+
+- **Contexto:** la entrada «2026-11-11 · Inversión por socio y reparto 50/50» dejó pendiente confirmar que un socio pudiera terminar debiendo dinero.
+- **Decisión:** los socios confirman que la pérdida también se divide 50/50 por defecto (según la participación configurada si cambia). Un total negativo se conserva y se muestra como «Debe aportar». Con pérdida no hay reinversión. Esta decisión reemplaza expresamente la nota «Pendiente de confirmar con los socios» de la entrada del 2026-11-11, que se conserva sin editar como registro histórico.
+- **Consecuencias:** se cierra la pregunta abierta del backlog. En el caso de ventas $1,000 e inversiones $1,400 / $60, sin trabajo, Luis recibe $1,170 y el otro socio debe aportar $170; la suma sigue siendo $1,000.
+
 ## 2026-11-18 · Empalme no configurable
 
 - **Contexto:** la pantalla 24 permitía desactivar el empalme por tipo de campaña, y D5 lo modeló con una política `{ enabled }`. Eso chocaba con la restricción de K1 y §8 regla 6, que no tiene excepciones: con la regla desactivada, el dominio aceptaba una campaña que la base rechazaba.

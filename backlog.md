@@ -103,7 +103,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Reparte los costos fijos de la campaña entre las unidades producidas; el residuo de centavos se asigna a la última unidad para que la suma cuadre.
     - Devuelve costo real por pieza = costo de receta + prorrateo, para comparar contra el costo de receta.
 
-- [ ] **D7 · Cierre y reparto**
+- [x] **D7 · Cierre y reparto**
   - Depende: D1
   - Spec: §8 regla 7
   - Criterios:
@@ -113,6 +113,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Salida por socio: inversión, recupera, trabajo, ganancia, total a recibir; más reinversión a caja.
     - Pruebas con la sección 10 de la especificación: reinversión 0% → Luis $2,170, el otro socio $1,430; reinversión 30% → $1,939 / $1,199 / caja $462; pérdida de $460 → Luis $1,170, el otro socio debe aportar $170. En todos, la suma cuadra con las ventas.
     - Con pérdida no hay reinversión.
+    - La caja recupera íntegros sus gastos incluso con pérdida, sin participación en el resultado; se devuelven recuperación y reinversión separadas. Totales de socios + total de caja = ventas.
     - El residuo de centavos al dividir 50/50 se asigna de forma determinista y documentada (ej. al socio con mayor inversión).
 
 - [ ] **D8 · Clonación de campaña**
@@ -264,4 +265,3 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
 
 - ¿Dónde se despliega? (VPS, Railway, Fly.io). Define el almacenamiento de fotos de tickets.
 - ¿Se necesita trabajar sin conexión en el tianguis? Si sí, la venta rápida necesita cola local y sincronización; hoy no está en el alcance.
-- Pérdida dividida 50/50 (regla actual): confirmar con los socios que, si un socio invirtió poco, puede terminar debiendo dinero al cerrar una campaña con pérdida. La alternativa es repartir lo que haya en proporción a lo invertido.
