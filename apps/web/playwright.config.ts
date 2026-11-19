@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
-process.env['E2E_AUTH_EMAIL'] ??= `e2e-${randomUUID()}@example.test`;
+process.env['E2E_AUTH_EMAIL'] ??= 'e2e-partner-1@example.test';
 process.env['E2E_AUTH_PASSWORD'] ??= randomUUID();
 
 export default defineConfig({
@@ -18,11 +18,29 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop',
+      testIgnore: '**/partners.spec.ts',
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
     // Pixel 7 (táctil, móvil) con el ancho de referencia de 390 px de CLAUDE.md.
     {
       name: 'mobile',
+      testIgnore: '**/partners.spec.ts',
+      use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } },
+    },
+    {
+      name: 'partners-desktop',
+      testMatch: '**/partners.spec.ts',
+      dependencies: ['desktop', 'mobile'],
+      fullyParallel: false,
+      workers: 1,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: 'partners-mobile',
+      testMatch: '**/partners.spec.ts',
+      dependencies: ['partners-desktop'],
+      fullyParallel: false,
+      workers: 1,
       use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } },
     },
   ],

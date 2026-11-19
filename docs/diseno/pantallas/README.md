@@ -43,6 +43,7 @@ Componentes compartidos en `componentes/`: `menu-lateral.png` (navegación deskt
 | 03 | Breadcrumb «Configuración › Catálogo» y la opción Configuración activa en el menú | La pantalla pertenece al catálogo (§4) y tiene su propia entrada «Tipos de artículo»; el breadcrumb dice «Catálogo» |
 | 03 | Interruptor «Requerido» editable en atributos que definen variante | Un atributo que define variante siempre es requerido: el interruptor queda activado y deshabilitado |
 | 24 | Tarjeta «Tipos de campaña» con el interruptor «No permitir empalme dentro del mismo tipo» | El empalme siempre se impide dentro del mismo tipo y no es configurable (§7, pantalla 24): la interfaz no lleva ese interruptor |
+| 22 | Importes y campañas de ejemplo; texto «Trabajo» abreviado en móvil | S1 muestra montos sin datos y estado vacío hasta K7; usa «Trabajo pagado» explícito y navegación MVP. Comparación: [revisión S1](../revisiones/S1/README.md) |
 
 Las pantallas 13, 14, 17 y 22 se regeneraron el 11 nov 2026 con la inversión por socio y el reparto 50/50 (ver `docs/decisiones.md`).
 

@@ -6,11 +6,8 @@ import type { App } from 'supertest/types.js';
 import { z } from 'zod';
 import { AppModule } from '../src/app.module.js';
 import { loadEnvFile } from '../src/config/load-env-file.js';
-import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
 import { DATABASE, type Database } from '../src/database/database.module.js';
-import { users, partners } from '../src/database/schema.js';
-import { setPassword } from '../src/auth/set-password.js';
+import { preparePartners, TEST_PARTNER_EMAIL } from './partners-fixture.js';
 
 loadEnvFile();
 if (process.env.DATABASE_URL_TEST) {
@@ -30,7 +27,6 @@ class SampleController {
 describe('Validación con esquemas Zod (e2e)', () => {
   let app: INestApplication<App>;
   let db: Database;
-  let userId: string;
   let cookie: string;
 
   beforeAll(async () => {
@@ -41,8 +37,8 @@ describe('Validación con esquemas Zod (e2e)', () => {
     app = moduleRef.createNestApplication();
     await app.init();
     db = moduleRef.get(DATABASE);
-    const email = `validation-${randomUUID()}@example.test`;
-    userId = await setPassword(db, email, 'solo pruebas');
+    const email = TEST_PARTNER_EMAIL;
+    await preparePartners(db);
     const login = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email, password: 'solo pruebas' })
@@ -51,10 +47,6 @@ describe('Validación con esquemas Zod (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (db && userId) {
-      await db.delete(partners).where(eq(partners.userId, userId));
-      await db.delete(users).where(eq(users.id, userId));
-    }
     await app.close();
   });
 
