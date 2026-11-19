@@ -6,10 +6,11 @@ import { ConfigModule } from './config/config.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './health/health.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { PartnersModule } from './partners/partners.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 
 @Module({
-  imports: [ConfigModule, DatabaseModule, HealthModule, AuthModule, CatalogModule],
+  imports: [ConfigModule, DatabaseModule, HealthModule, AuthModule, CatalogModule, PartnersModule],
   providers: [
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
     { provide: APP_PIPE, useFactory: createValidationPipe },

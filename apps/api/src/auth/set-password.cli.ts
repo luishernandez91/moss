@@ -2,6 +2,7 @@ import { createInterface } from 'node:readline';
 import { Writable } from 'node:stream';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
+import { PartnerError } from '@moss/domain';
 import { ZodError } from 'zod';
 import { authEmailSchema, passwordSchema } from '@moss/contracts';
 import { loadEnvFile } from '../config/load-env-file.js';
@@ -50,7 +51,7 @@ try {
 } catch (error) {
   // No imprimir errores de PostgreSQL, que podrían incluir conexión o valores sensibles.
   const message =
-    error instanceof CommandInputError
+    error instanceof CommandInputError || error instanceof PartnerError
       ? error.message
       : error instanceof ZodError
         ? error.issues.map((issue) => issue.message).join('\n')

@@ -2,7 +2,7 @@
  * Esquema de Drizzle. Las tablas se agregan historia por historia (ver backlog.md).
  * Nombres en inglés según el glosario de AGENTS.md; montos en centavos enteros.
  */
-import { ATTRIBUTE_DATA_TYPES } from '@moss/domain';
+import { ATTRIBUTE_DATA_TYPES, DEFAULT_PARTNER_SHARE_BPS } from '@moss/domain';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -24,14 +24,24 @@ export const users = pgTable('users', {
   sessionVersion: integer('session_version').notNull().default(0),
 });
 
-export const partners = pgTable('partners', {
-  id: uuid().primaryKey().defaultRandom(),
-  name: text().notNull(),
-  userId: uuid('user_id')
-    .notNull()
-    .unique()
-    .references(() => users.id),
-});
+export const partners = pgTable(
+  'partners',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    name: text().notNull(),
+    shareBps: integer('share_bps').notNull().default(DEFAULT_PARTNER_SHARE_BPS),
+    version: integer('version').notNull().default(0),
+    userId: uuid('user_id')
+      .notNull()
+      .unique()
+      .references(() => users.id),
+  },
+  (table) => [
+    check('partners_share_bps_range', sql`${table.shareBps} BETWEEN 0 AND 10000`),
+    check('partners_share_bps_whole_percent', sql`${table.shareBps} % 100 = 0`),
+    check('partners_version_nonnegative', sql`${table.version} >= 0`),
+  ],
+);
 
 // C1 · Tipos de artículo y atributos. Los valores de atributo (JSONB) llegan con C2.
 export const attributeDataType = pgEnum('attribute_data_type', ATTRIBUTE_DATA_TYPES);

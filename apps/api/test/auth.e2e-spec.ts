@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { Controller, Get, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { eq } from 'drizzle-orm';
@@ -10,6 +9,7 @@ import { users, partners } from '../src/database/schema.js';
 import { setPassword } from '../src/auth/set-password.js';
 import { LoginAttempts } from '../src/auth/login-attempts.js';
 import { issueSession, SESSION_SECONDS } from '../src/auth/session.js';
+import { preparePartners, TEST_PARTNER_EMAIL } from './partners-fixture.js';
 import { loadEnvFile } from '../src/config/load-env-file.js';
 
 loadEnvFile();
@@ -27,7 +27,7 @@ describe('autenticación (PostgreSQL real)', () => {
   let app: INestApplication<App>;
   let db: Database;
   let attempts: LoginAttempts;
-  const email = `auth-${randomUUID()}@example.test`;
+  const email = TEST_PARTNER_EMAIL;
   const password = 'solo pruebas';
   let userId: string;
 
@@ -41,14 +41,10 @@ describe('autenticación (PostgreSQL real)', () => {
     await app.init();
     db = module.get(DATABASE);
     attempts = module.get(LoginAttempts);
-    userId = await setPassword(db, email, password, 'Socio de prueba');
+    userId = (await preparePartners(db)).id;
   });
 
   afterAll(async () => {
-    if (db && userId) {
-      await db.delete(partners).where(eq(partners.userId, userId));
-      await db.delete(users).where(eq(users.id, userId));
-    }
     await app?.close();
   });
 
@@ -106,9 +102,10 @@ describe('autenticación (PostgreSQL real)', () => {
       .get('/api/auth/me')
       .set('Cookie', 'moss.sid=alterada.firma')
       .expect(401);
+    const [previous] = await db.select().from(users).where(eq(users.id, userId));
     await setPassword(db, email.toUpperCase(), password);
     const account = await db.select().from(users).where(eq(users.id, userId));
-    expect(account[0]!.sessionVersion).toBe(1);
+    expect(account[0]!.sessionVersion).toBe(previous!.sessionVersion + 1);
     await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', before).expect(401);
     const updated = await login();
     await request(app.getHttpServer())

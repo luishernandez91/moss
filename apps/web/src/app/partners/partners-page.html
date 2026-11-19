@@ -1,0 +1,70 @@
+<header class="heading">
+  <h1>Socios</h1>
+  <div class="actions">
+    <button
+      mat-stroked-button
+      (click)="edit()"
+      [disabled]="
+        !api.partners.hasValue() || api.partners.isLoading() || api.partners.value().length !== 2
+      "
+    >
+      Editar participación
+    </button>
+    <p>Reparto de la ganancia. Debe sumar 100%</p>
+  </div>
+</header>
+@if (api.partners.isLoading()) {
+  <p role="status">Cargando socios…</p>
+} @else if (api.partners.error()) {
+  <div class="notice" role="alert">
+    <p>{{ apiErrorMessage(api.partners.error()) }}</p>
+    <button mat-button (click)="api.partners.reload()">Reintentar</button>
+  </div>
+} @else {
+  @if (api.partners.value()?.length !== 2) {
+    <p class="notice" role="status">
+      La configuración está incompleta: se requieren exactamente dos socios. Las cuentas se
+      administran desde la terminal.
+    </p>
+  }
+  <div class="partners">
+    @for (partner of api.partners.value(); track partner.id) {
+      <article class="partner-card">
+        <div class="identity">
+          <span class="avatar" aria-hidden="true">{{
+            partner.name.slice(0, 1).toUpperCase()
+          }}</span>
+          <div>
+            <h2>{{ partner.name }}</h2>
+            <p>Ganancia {{ partner.shareBps / 100 }}%</p>
+          </div>
+        </div>
+        <dl class="metrics">
+          <div>
+            <dt>Invertido</dt>
+            <dd aria-label="Sin datos">—</dd>
+          </div>
+          <div>
+            <dt>Trabajo pagado</dt>
+            <dd aria-label="Sin datos">—</dd>
+          </div>
+          <div>
+            <dt>Ganancia recibida</dt>
+            <dd aria-label="Sin datos">—</dd>
+          </div>
+        </dl>
+      </article>
+    }
+  </div>
+  <section class="campaigns" aria-labelledby="campaign-title">
+    <h2 id="campaign-title">Por campaña</h2>
+    <div class="table-head" aria-hidden="true">
+      <span>Campaña</span><span>Socio</span><span>Invirtió</span><span>Trabajo pagado</span
+      ><span>Ganancia recibida</span><span>Total</span>
+    </div>
+    <div class="empty">
+      <p>Aún no hay cierres registrados.</p>
+      <p>Aquí aparecerá el reparto por campaña.</p>
+    </div>
+  </section>
+}

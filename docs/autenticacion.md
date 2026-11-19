@@ -10,7 +10,7 @@ E0.5 permite el acceso de los dos socios. No hay registro público, cuentas de e
 4. Crea cada cuenta con `pnpm auth:set-password <correo> [nombre]`, por ejemplo `pnpm auth:set-password luis@example.test Luis`. El comando pide una contraseña de al menos 6 caracteres sin mostrarla. Usa correos y contraseñas propios; los ejemplos no son credenciales compartidas.
 5. Ejecuta `pnpm dev` y entra en http://localhost:4200. Web y API comparten origen mediante el proxy `/api`.
 
-El comando normaliza el correo (sin espacios exteriores y en minúsculas). Si la cuenta es nueva, crea también el socio con UUID; sin nombre, usa la parte anterior a `@`. Si ya existe, cambia la contraseña, conserva el socio y su nombre e incrementa `users.session_version` en la misma transacción. No acepta contraseñas como argumento ni por una tubería: requiere terminal interactiva.
+El comando normaliza el correo (sin espacios exteriores y en minúsculas). Si la cuenta es nueva, crea también el socio con UUID, participación de 5000 puntos base y versión 0; rechaza una tercera alta bajo bloqueo asesor transaccional. Sin nombre, usa la parte anterior a `@`. Si ya existe, cambia la contraseña, conserva el socio y su nombre e incrementa `users.session_version` en la misma transacción. No acepta contraseñas como argumento ni por una tubería: requiere terminal interactiva.
 
 Variables en `.env.example`: `DATABASE_URL`, `API_PORT`, `SESSION_SECRET`, `NODE_ENV`, `TRUST_PROXY_HOPS` y `TZ_BUSINESS`. Usa `NODE_ENV=development` para HTTP local; `production` exige HTTPS para enviar la cookie. No hay variable para contraseñas de usuarios.
 
@@ -35,4 +35,4 @@ En local, `TRUST_PROXY_HOPS=0`. Detrás de un proxy controlado, configura el nú
 
 `pnpm test` ejecuta las pruebas unitarias, incluyendo scrypt real. Con PostgreSQL y migraciones aplicadas, `pnpm --filter api test:e2e` verifica login, guards, cookies y versiones. `pnpm e2e` construye API/paquetes y levanta servidores aislados en 3100 y 4300 para probar el flujo de acceso en escritorio y celular.
 
-Las pruebas crean cuentas efímeras `@example.test` y eliminan únicamente sus propias cuentas al terminar. Si defines `DATABASE_URL_TEST`, integración y navegador usan esa base (aplica antes las migraciones allí). Los secretos de prueba de CI y Playwright se usan solo en sus procesos; nunca son valores de despliegue.
+Las pruebas reutilizan dos cuentas `@example.test` en una base dedicada (`*_test`, o la base efímera de CI). Las suites de API se ejecutan en serie y los proyectos Playwright de Socios ejecutan desktop antes de mobile. Cada prueba que edita socios restaura nombres y participaciones originales en `afterEach`, sin borrar socios ni retroceder versiones. Si defines `DATABASE_URL_TEST`, integración y navegador usan esa base (aplica antes las migraciones allí). Los secretos de prueba de CI y Playwright se usan solo en sus procesos; nunca son valores de despliegue.
