@@ -94,8 +94,9 @@ export function multiply(unitPrice: Cents, quantity: number): Cents {
 }
 
 /**
- * Porcentaje entero de un monto, ej. percentage(ganancia, 30) para la reinversión. Los porcentajes
- * del proyecto son enteros (`percentSchema` en contracts); un decimal lanza `MoneyError`.
+ * Porcentaje entero de un monto, ej. percentage(ganancia, 30) para la reinversión. Participaciones y
+ * reinversión son enteras (`percentSchema` en contracts); un decimal lanza `MoneyError`. El margen
+ * mínimo de D3 sí admite decimales, pero no pasa por aquí.
  */
 export function percentage(amount: Cents, percent: number): Cents {
   if (!Number.isSafeInteger(percent)) {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 /** Monto en centavos enteros (ver AGENTS.md, regla 1). */
 export const centsSchema = z.number().int('El monto debe estar en centavos enteros');
 
-/** Porcentaje entero de 0 a 100: los porcentajes del proyecto no llevan decimales. */
+/** Porcentaje entero de 0 a 100, para participaciones y reinversión. El margen mínimo (D3) admite decimales. */
 export const percentSchema = z
   .number()
   .int('El porcentaje debe ser entero')
