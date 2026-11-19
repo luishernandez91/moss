@@ -52,6 +52,7 @@ El token de versión puede ser un entero no negativo con valor inicial 0. Cada e
 | Sin sesión | 401 | Guard global de E0.5; nada es público salvo `@Public()` |
 | No existe | 404 con código propio (`ARTICLE_TYPE_NOT_FOUND`) | `NotFoundException({ code, message })` en el servicio |
 | Regla de dominio | 422 con el `code` y `message` del dominio | `runDomainRule(ErrorClass, () => regla(...))` (`common/domain-errors.ts`) |
+| Choque con datos guardados | 409 con el `code` del dominio; `details` sale de `error.conflict` | `runDomainRule(UsageErrorClass, () => regla(...), 409)` |
 | Carrera que rechaza la base (23505) | 409 con el mismo `code` que la regla | `guardWrite(() => insert/update, { unique: { code, message } })` |
 | El padre se borró entre la validación y la escritura (23503) | 404 del padre | `guardWrite(..., { foreignKey: () => new NotFoundException(...) })` |
 | Versión enviada distinta de la vigente | 409 con código propio del recurso | Comparación de todas las versiones bajo `FOR UPDATE`; rollback completo |
@@ -76,3 +77,9 @@ Después: compara las capturas con `docs/diseno/pantallas/NN-*` y registra las d
 - `schema.ts` importa constantes de `@moss/domain` (p. ej. los valores de un enum); por eso `pnpm db:generate` compila los paquetes antes. Si corres `drizzle-kit` dentro de `apps/api`, corre `pnpm build:packages` primero o la migración saldrá de un `dist` viejo.
 - Los cambios en `packages/*` no se ven en las apps hasta `pnpm build:packages`. Playwright arranca `apps/api/dist`: `pnpm e2e` ya compila todo, pero si corres `playwright test` dentro de `apps/web`, compila antes con `pnpm build:packages && pnpm --filter api build`.
 - El servidor de desarrollo de Angular preempaqueta `@moss/domain` y `@moss/contracts` en `apps/web/.angular/cache`. Si agregas una exportación y el navegador dice «does not provide an export named …», borra esa carpeta (`rm -rf apps/web/.angular/cache`) y vuelve a arrancar.
+- `httpResource` y pruebas: `fixture.whenStable()` espera las peticiones pendientes. Si una petición depende de otra (detalle → historial), responde la primera, espera una tarea (`await new Promise((r) => setTimeout(r))`) y llama `TestBed.tick()` antes de `expectOne` de la segunda.
+- PostgreSQL: un `GROUP BY` sobre una expresión con parámetros (`col ->> $1`) no reconoce la misma expresión del `SELECT` (`$4`); agrupa por posición (`groupBy(sql\`1\`)`).
+- `defaultNow()` es `now()`, la hora de inicio de la transacción: filas creadas en la misma transacción empatan. Si el orden de creación importa, usa `default(sql\`clock_timestamp()\`)`.
+- Playwright corre contra una base `_test` desechable (S1). Lo que crea y no tiene endpoint de borrado (artículos y variantes, que solo se desactivan) queda en esa base: usa nombres y SKU únicos por prueba en lugar de depender de una limpieza.
+- Playwright y diálogos de Material: el foco pasa al primer campo cuando termina la animación de apertura. Si la prueba escribe antes, el texto puede caer en otro campo (se vio bajo carga: «SKU» recibió el costo). Después de abrir un diálogo llama `openedDialog(page)` (`apps/web/e2e/dialogs.ts`).
+- Un diálogo que necesita datos que se cargan con `httpResource` los lee vivos del servicio, no como copia al abrirse: si se abre antes de que lleguen, se quedaría vacío.

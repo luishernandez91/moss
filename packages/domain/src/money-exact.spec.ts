@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { add, allocate, cents, MoneyError, percentageBps, type Cents } from './money.js';
+import {
+  add,
+  allocate,
+  cents,
+  MoneyError,
+  multiply,
+  percentage,
+  percentageBps,
+  roundRatioToCents,
+  type Cents,
+} from './money.js';
 
 describe('percentageBps', () => {
   it.each([
@@ -77,4 +87,53 @@ describe('allocate con pesos enteros exactos', () => {
       expect(() => allocate(cents(100), weights)).toThrow(MoneyError);
     },
   );
+});
+
+describe('roundRatioToCents: único redondeo a centavos', () => {
+  it('redondea half-up simétrico: 0.5 se aleja de cero', () => {
+    expect(roundRatioToCents(5n, 2n)).toBe(3);
+    expect(roundRatioToCents(-5n, 2n)).toBe(-3);
+    expect(roundRatioToCents(7n, 2n)).toBe(4);
+    expect(roundRatioToCents(2n, 3n)).toBe(1);
+    expect(roundRatioToCents(1n, 3n)).toBe(0);
+    expect(roundRatioToCents(-1n, 3n)).toBe(0);
+    expect(roundRatioToCents(10n, 5n)).toBe(2);
+  });
+
+  it('es exacto cerca del límite de los enteros seguros', () => {
+    const max = BigInt(Number.MAX_SAFE_INTEGER);
+    expect(roundRatioToCents(max * 3n, 3n)).toBe(Number.MAX_SAFE_INTEGER);
+    expect(() => roundRatioToCents(max * 2n + 2n, 2n)).toThrow(MoneyError);
+  });
+
+  it('exige un denominador positivo', () => {
+    expect(() => roundRatioToCents(1n, 0n)).toThrow(MoneyError);
+    expect(() => roundRatioToCents(1n, -2n)).toThrow(MoneyError);
+  });
+
+  it('multiply, percentageBps y el prorrateo de D6 redondean igual con cantidades exactas', () => {
+    // Cantidad en notación exponencial: 1e-7 de $1,000,000.00 = 10 centavos.
+    expect(multiply(cents(100_000_000), 1e-7)).toBe(10);
+    // 0.145 × 100¢ = 14.5¢ → 15¢ aunque el producto en flotante sea 14.4999…
+    expect(multiply(cents(100), 0.145)).toBe(15);
+    expect(multiply(cents(-100), 0.145)).toBe(-15);
+    expect(percentageBps(cents(5), 5000)).toBe(3);
+  });
+});
+
+describe('percentage con porcentajes enteros', () => {
+  it('coincide con el valor exacto half-up para todo porcentaje entero de 0 a 100', () => {
+    for (let percent = 0; percent <= 100; percent += 1) {
+      for (const amount of [1, 5, 50, 99, 101, 333, 1550, 154000, 999_999, -250, -1555]) {
+        const exact = Number(roundRatioToCents(BigInt(amount) * BigInt(percent), 100n));
+        expect(percentage(cents(amount), percent)).toBe(exact);
+      }
+    }
+  });
+
+  it('rechaza porcentajes decimales: los porcentajes del proyecto son enteros', () => {
+    for (const percent of [0.7, 1.4, 11.3, Number.NaN]) {
+      expect(() => percentage(cents(500), percent)).toThrow(MoneyError);
+    }
+  });
 });

@@ -34,11 +34,11 @@ describe('contratos de tipos de artículo', () => {
     expect(createAttributeSchema.safeParse({ ...base, dataType: 'fecha' }).success).toBe(false);
   });
 
-  it('el parche no permite cambiar el tipo de dato ni la clave, y no puede ir vacío', () => {
+  // C2: la clave llega al dominio, que responde 422 KEY_IMMUTABLE si cambia (antes era 400).
+  it('el parche no permite cambiar el tipo de dato y no puede ir vacío', () => {
     expect(updateAttributeSchema.parse({ active: false })).toEqual({ active: false });
     expect(updateAttributeSchema.safeParse({}).success).toBe(false);
     expect(updateAttributeSchema.safeParse({ dataType: 'text' }).success).toBe(false);
-    expect(updateAttributeSchema.safeParse({ key: 'otra' }).success).toBe(false);
     expect(updateAttributeSchema.parse({ unit: null })).toEqual({ unit: null });
   });
 

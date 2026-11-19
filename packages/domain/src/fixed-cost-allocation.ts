@@ -8,7 +8,7 @@
  * sumarse al resultado ni pasarse al cierre: solo redistribuye por pieza un gasto que ya existe
  * (Σ allocated + unallocated = fixedCosts).
  */
-import { add, allocate, cents, ZERO, type Cents } from './money.js';
+import { add, allocate, cents, roundRatioToCents, ZERO, type Cents } from './money.js';
 
 export interface FixedCostLine {
   /** Clave de la línea de costeo (ej. producto + tamaño); la define quien llama. */
@@ -80,11 +80,6 @@ function assertAmount(amount: Cents, label: string): void {
   }
 }
 
-/** División half-up exacta de montos no negativos; MoneyError si el resultado desborda. */
-function divideHalfUp(total: bigint, units: bigint): Cents {
-  return cents(Number((2n * total + units) / (2n * units)));
-}
-
 /**
  * Reparte los costos fijos entre las líneas con peso = unidades producidas (por unidad puro, sin
  * pesos adicionales). El residuo entre líneas va por ID ascendente UTF-16 al primer peso positivo
@@ -153,9 +148,9 @@ export function allocateFixedCosts(input: FixedCostAllocationInput): FixedCostAl
         base: cents(Number(fixed / units)),
         unitsWithExtraCent: Number(fixed % units),
       },
-      fixedPerUnit: divideHalfUp(fixed, units),
-      recipeUnitCost: divideHalfUp(recipe, units),
-      realUnitCost: divideHalfUp(recipe + fixed, units),
+      fixedPerUnit: roundRatioToCents(fixed, units),
+      recipeUnitCost: roundRatioToCents(recipe, units),
+      realUnitCost: roundRatioToCents(recipe + fixed, units),
     };
   });
 

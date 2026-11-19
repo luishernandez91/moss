@@ -42,8 +42,26 @@ Componentes compartidos en `componentes/`: `menu-lateral.png` (navegación deskt
 | 03 | Contador de «Maceta» en 3 con cinco atributos en la tabla | El contador es el número de atributos activos del tipo |
 | 03 | Breadcrumb «Configuración › Catálogo» y la opción Configuración activa en el menú | La pantalla pertenece al catálogo (§4) y tiene su propia entrada «Tipos de artículo»; el breadcrumb dice «Catálogo» |
 | 03 | Interruptor «Requerido» editable en atributos que definen variante | Un atributo que define variante siempre es requerido: el interruptor queda activado y deshabilitado |
+| 04, 05 | Fotos de artículo | Sin fotos en C2: un ícono genérico. El almacenamiento de archivos depende del despliegue (pregunta abierta del backlog) |
+| 05 | Gráfica escalonada del historial de costo | Lista de entradas (fecha · motivo · costo); sin gráfica en C2 |
+| 04, 05 | Costo y existencia de piezas sin unidad; «$0.50/m» y «300 m» en otros artículos | Igual que la imagen: la unidad de existencia del artículo va como sufijo, salvo en piezas |
+| 05 | Muestras de color junto al valor | El color es una opción de lista, no un código de color: se muestra solo el texto |
+| 04, 05 | Sin filtros ni acciones para inactivos | Artículos y variantes no se borran: «Mostrar inactivos» o «Mostrar inactivas» y la acción «Reactivar» |
+| 04 | La pastilla «Diámetro: 10 cm» aparece sin forma de agregarla | Al elegir un tipo aparece «Filtrar por atributo» (diálogo de atributo y valor) y «Con existencia» |
+| 05 (mobile) | Barra superior «‹ Artículo» con lápiz | Enlace «‹ Catálogo» y menú «Acciones del artículo» dentro de la página; la barra superior es la del shell |
+| 03 | Se puede agregar cualquier atributo a un tipo | Limitación de C2: un tipo con artículos no puede ganar un atributo requerido ni uno de variante (409 `ATTRIBUTE_VALUES_MISSING`). Se crea opcional y se llena; el de variante con valor por defecto queda para C6 |
 | 24 | Tarjeta «Tipos de campaña» con el interruptor «No permitir empalme dentro del mismo tipo» | El empalme siempre se impide dentro del mismo tipo y no es configurable (§7, pantalla 24): la interfaz no lleva ese interruptor |
 | 22 | Importes y campañas de ejemplo; texto «Trabajo» abreviado en móvil | S1 muestra montos sin datos y estado vacío hasta K7; usa «Trabajo pagado» explícito y navegación MVP. Comparación: [revisión S1](../revisiones/S1/README.md) |
+
+## Unidad de existencia mal capturada (pantallas 4 y 5)
+
+La unidad de existencia de un artículo no se edita: cambiaría el significado del costo y la existencia de todas sus variantes. Si se capturó mal:
+
+1. Desactiva el artículo (menú «Acciones del artículo» → «Desactivar artículo»).
+2. Edita cada variante del artículo desactivado y cambia su SKU (por ejemplo, agrega `-OLD`), para liberar los SKU originales. El SKU es único también contra variantes inactivas.
+3. Crea el artículo correcto con su unidad y las variantes con los SKU originales y los costos y existencias en la nueva unidad.
+
+El historial de costo del artículo anterior se conserva en el desactivado.
 
 Las pantallas 13, 14, 17 y 22 se regeneraron el 11 nov 2026 con la inversión por socio y el reparto 50/50 (ver `docs/decisiones.md`).
 

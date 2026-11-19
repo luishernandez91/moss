@@ -274,6 +274,7 @@ describe('resolveCost · árbol', () => {
   const article: Article = {
     id: 'insumo',
     name: 'Insumo',
+    stockUnit: 'piece',
     variants: [{ sku: 'INS-1', attributes: {}, averageCost: cents(1000) }],
   };
   const articles = [article];
@@ -422,6 +423,7 @@ describe('resolveCost · árbol', () => {
     const ambiguous: Article = {
       id: 'maceta',
       name: 'Maceta',
+      stockUnit: 'piece',
       variants: [
         { sku: 'M-GR', attributes: { color: 'gris' }, averageCost: cents(1500) },
         { sku: 'M-BL', attributes: { color: 'blanco' }, averageCost: cents(1500) },

@@ -58,10 +58,12 @@ export const createAttributeSchema = z.discriminatedUnion('dataType', [
 ]);
 export type CreateAttribute = z.infer<typeof createAttributeSchema>;
 
-/** Cambios parciales; el tipo de dato y la clave no se editan. */
+/** Cambios parciales; el tipo de dato no se edita y la clave es inmutable. */
 export const updateAttributeSchema = z
   .strictObject({
     name: attributeName.optional(),
+    /** Se acepta para que el dominio responda 422 `KEY_IMMUTABLE` si no es la clave actual. */
+    key: z.string().trim().min(1).max(80).optional(),
     unit: unit.optional(),
     options: options.optional(),
     required: z.boolean().optional(),
