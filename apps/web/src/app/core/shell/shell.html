@@ -19,6 +19,12 @@
           </a>
         }
       </mat-nav-list>
+      <button mat-button class="logout" (click)="logout()" [disabled]="leaving()">
+        Cerrar sesión
+      </button>
+      @if (logoutError()) {
+        <p role="alert" class="logout-error">{{ logoutError() }}</p>
+      }
     </mat-sidenav>
     <mat-sidenav-content>
       <main>
@@ -31,8 +37,20 @@
     <mat-toolbar class="topbar">
       <mat-icon aria-hidden="true">eco</mat-icon>
       <span>Moss &amp; Roots</span>
+      <button
+        mat-icon-button
+        class="logout-mobile"
+        aria-label="Cerrar sesión"
+        (click)="logout()"
+        [disabled]="leaving()"
+      >
+        <mat-icon>logout</mat-icon>
+      </button>
     </mat-toolbar>
     <main class="mobile-main">
+      @if (logoutError()) {
+        <p role="alert" class="logout-error">{{ logoutError() }}</p>
+      }
       <router-outlet />
     </main>
     <nav class="tabbar" aria-label="Navegación principal">

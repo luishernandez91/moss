@@ -20,10 +20,13 @@ cp .env.example .env
 pnpm install
 pnpm db:up          # PostgreSQL 18 en Docker
 pnpm db:migrate     # aplica migraciones
+pnpm auth:set-password <correo> [nombre]  # crea cada cuenta; pide contraseña oculta
 pnpm dev            # API en :3000 y web en :4200
 ```
 
-Abre http://localhost:4200. El dashboard indica si la API y la base de datos están conectadas.
+Antes de arrancar, genera `SESSION_SECRET` y guárdalo en `.env` siguiendo [la guía de autenticación](docs/autenticacion.md). No hay credenciales compartidas de desarrollo.
+
+Abre http://localhost:4200 e inicia sesión. El dashboard indica si la API y la base de datos están conectadas.
 
 ## Estructura
 
@@ -40,6 +43,7 @@ docs/               Especificación, decisiones, diseño y datos de ejemplo
 
 | Comando | Qué hace |
 | --- | --- |
+| `pnpm auth:set-password <correo> [nombre]` | Crea usuario/socio o cambia contraseña e invalida sus sesiones |
 | `pnpm dev` | Levanta la base, la API y la web en modo desarrollo |
 | `pnpm test` | Pruebas unitarias de todos los paquetes |
 | `pnpm --filter api test:e2e` | Pruebas de la API contra PostgreSQL |

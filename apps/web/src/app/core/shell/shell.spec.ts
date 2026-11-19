@@ -2,23 +2,28 @@ import { BreakpointObserver, type BreakpointState } from '@angular/cdk/layout';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
-import { App } from './app';
-import { NAV_ITEMS } from './core/navigation';
+import { Shell } from './shell';
+import { AuthService } from '../auth';
+import { NAV_ITEMS } from '../navigation';
 
 async function renderShell(desktop: boolean): Promise<string> {
   const observer: Pick<BreakpointObserver, 'observe'> = {
     observe: () => of({ matches: desktop, breakpoints: {} } satisfies BreakpointState),
   };
   await TestBed.configureTestingModule({
-    imports: [App],
-    providers: [provideRouter([]), { provide: BreakpointObserver, useValue: observer }],
+    imports: [Shell],
+    providers: [
+      { provide: AuthService, useValue: {} },
+      provideRouter([]),
+      { provide: BreakpointObserver, useValue: observer },
+    ],
   }).compileComponents();
-  const fixture = TestBed.createComponent(App);
+  const fixture = TestBed.createComponent(Shell);
   await fixture.whenStable();
   return (fixture.nativeElement as HTMLElement).textContent ?? '';
 }
 
-describe('App', () => {
+describe('Shell', () => {
   it('en escritorio muestra todas las pantallas del MVP en la barra lateral', async () => {
     const text = await renderShell(true);
     for (const item of NAV_ITEMS) {

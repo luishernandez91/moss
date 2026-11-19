@@ -6,6 +6,11 @@ import type { App } from 'supertest/types.js';
 import { z } from 'zod';
 import { AppModule } from '../src/app.module.js';
 import { loadEnvFile } from '../src/config/load-env-file.js';
+import { randomUUID } from 'node:crypto';
+import { eq } from 'drizzle-orm';
+import { DATABASE, type Database } from '../src/database/database.module.js';
+import { users, partners } from '../src/database/schema.js';
+import { setPassword } from '../src/auth/set-password.js';
 
 loadEnvFile();
 if (process.env.DATABASE_URL_TEST) {
@@ -24,6 +29,9 @@ class SampleController {
 
 describe('Validación con esquemas Zod (e2e)', () => {
   let app: INestApplication<App>;
+  let db: Database;
+  let userId: string;
+  let cookie: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -32,15 +40,28 @@ describe('Validación con esquemas Zod (e2e)', () => {
     }).compile();
     app = moduleRef.createNestApplication();
     await app.init();
+    db = moduleRef.get(DATABASE);
+    const email = `validation-${randomUUID()}@example.test`;
+    userId = await setPassword(db, email, 'solo pruebas');
+    const login = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email, password: 'solo pruebas' })
+      .expect(200);
+    cookie = login.headers['set-cookie']![0]!;
   });
 
   afterAll(async () => {
+    if (db && userId) {
+      await db.delete(partners).where(eq(partners.userId, userId));
+      await db.delete(users).where(eq(users.id, userId));
+    }
     await app.close();
   });
 
   it('acepta un cuerpo válido', async () => {
     await request(app.getHttpServer())
       .post('/sample')
+      .set('Cookie', cookie)
       .send({ amount: 5310, date: '2026-11-10' })
       .expect(201, { amount: 5310, date: '2026-11-10' });
   });
@@ -48,6 +69,7 @@ describe('Validación con esquemas Zod (e2e)', () => {
   it('rechaza montos con decimales con un error en español', async () => {
     const response = await request(app.getHttpServer())
       .post('/sample')
+      .set('Cookie', cookie)
       .send({ amount: 53.1, date: '2026-11-10' })
       .expect(400);
     expect(response.body).toMatchObject({

@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  const response = await page.request.post('/api/auth/login', {
+    data: { email: process.env['E2E_AUTH_EMAIL'], password: process.env['E2E_AUTH_PASSWORD'] },
+  });
+  expect(response.ok()).toBe(true);
+});
+
 test('abre el dashboard y navega a Campañas', async ({ page, isMobile }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/inicio$/);
