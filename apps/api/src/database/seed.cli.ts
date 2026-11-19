@@ -10,11 +10,19 @@ const catalogUrl = new URL('../../../../docs/datos/catalogo-ejemplo.json', impor
 const catalog = JSON.parse(readFileSync(catalogUrl, 'utf8')) as SpecCatalog;
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 try {
-  const { created, existing } = await seedCatalog(drizzle(pool, { schema }), catalog);
+  const { created, existing, defaultedToPiece } = await seedCatalog(
+    drizzle(pool, { schema }),
+    catalog,
+  );
   const line = (counts: typeof created) =>
     `${counts.articleTypes} tipos, ${counts.attributes} atributos, ${counts.articles} artículos, ${counts.variants} variantes`;
   console.log(`Creados: ${line(created)}.`);
   console.log(`Ya existían: ${line(existing)}.`);
+  if (defaultedToPiece.length > 0) {
+    console.log(
+      `En piezas por no tener unidad_consumo (${defaultedToPiece.length}): ${defaultedToPiece.join(', ')}.`,
+    );
+  }
 } catch (error) {
   if (error instanceof SeedConflictError) {
     console.error(`No se cargó nada. ${error.message}`);

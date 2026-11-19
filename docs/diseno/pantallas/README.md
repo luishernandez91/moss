@@ -52,6 +52,16 @@ Componentes compartidos en `componentes/`: `menu-lateral.png` (navegación deskt
 | 03 | Se puede agregar cualquier atributo a un tipo | Limitación de C2: un tipo con artículos no puede ganar un atributo requerido ni uno de variante (409 `ATTRIBUTE_VALUES_MISSING`). Se crea opcional y se llena; el de variante con valor por defecto queda para C6 |
 | 24 | Tarjeta «Tipos de campaña» con el interruptor «No permitir empalme dentro del mismo tipo» | El empalme siempre se impide dentro del mismo tipo y no es configurable (§7, pantalla 24): la interfaz no lleva ese interruptor |
 
+## Unidad de existencia mal capturada (pantallas 4 y 5)
+
+La unidad de existencia de un artículo no se edita: cambiaría el significado del costo y la existencia de todas sus variantes. Si se capturó mal:
+
+1. Desactiva el artículo (menú «Acciones del artículo» → «Desactivar artículo»).
+2. Edita cada variante del artículo desactivado y cambia su SKU (por ejemplo, agrega `-OLD`), para liberar los SKU originales. El SKU es único también contra variantes inactivas.
+3. Crea el artículo correcto con su unidad y las variantes con los SKU originales y los costos y existencias en la nueva unidad.
+
+El historial de costo del artículo anterior se conserva en el desactivado.
+
 Las pantallas 13, 14, 17 y 22 se regeneraron el 11 nov 2026 con la inversión por socio y el reparto 50/50 (ver `docs/decisiones.md`).
 
 Si regeneras una pantalla, reemplaza ambos archivos con el mismo nombre y borra su fila de esta tabla cuando ya no haya diferencias.

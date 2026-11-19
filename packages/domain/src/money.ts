@@ -93,15 +93,15 @@ export function multiply(unitPrice: Cents, quantity: number): Cents {
   return roundRatioToCents(BigInt(unitPrice) * numerator, denominator);
 }
 
-/** Porcentaje de un monto, ej. percentage(ganancia, 30) para la reinversión. */
+/**
+ * Porcentaje entero de un monto, ej. percentage(ganancia, 30) para la reinversión. Los porcentajes
+ * del proyecto son enteros (`percentSchema` en contracts); un decimal lanza `MoneyError`.
+ */
 export function percentage(amount: Cents, percent: number): Cents {
-  if (!Number.isFinite(percent)) {
-    throw new MoneyError(`Porcentaje inválido: ${percent}`);
+  if (!Number.isSafeInteger(percent)) {
+    throw new MoneyError(`El porcentaje debe ser entero; se recibió ${percent}`);
   }
-  assertInteger(amount, 'El monto');
-  // Exacto: `percent / 100` en flotante convertiría 0.7 en 0.006999…
-  const { numerator, denominator } = exactDecimal(percent);
-  return roundRatioToCents(BigInt(amount) * numerator, denominator * 100n);
+  return multiply(amount, percent / 100);
 }
 
 /**

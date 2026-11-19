@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { eq, inArray, isNull, like } from 'drizzle-orm';
+import { and, eq, inArray, isNull, like } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { loadEnvFile } from '../src/config/load-env-file.js';
@@ -76,7 +76,15 @@ describe('db:seed con el catálogo de ejemplo (PostgreSQL real)', () => {
     });
     expect(first.existing).toEqual({ articleTypes: 0, attributes: 0, articles: 0, variants: 0 });
 
+    // Artículos creados en piezas porque el catálogo no les da unidad_consumo.
+    const withoutUnit = specCatalog.articulos
+      .filter((article) => article.atributos_fijos?.['unidad_consumo'] == null)
+      .map((article) => `${prefix} ${article.nombre}`);
+    expect(withoutUnit).toHaveLength(specCatalog.articulos.length - 3);
+    expect(first.defaultedToPiece).toEqual(withoutUnit);
+
     const second = await seedCatalog(db, catalog);
+    expect(second.defaultedToPiece).toEqual([]);
     expect(second.created).toEqual({ articleTypes: 0, attributes: 0, articles: 0, variants: 0 });
     expect(second.existing).toEqual(first.created);
   });
@@ -182,7 +190,7 @@ describe('db:seed con el catálogo de ejemplo (PostgreSQL real)', () => {
     const [material] = await db
       .select({ name: attributes.name })
       .from(attributes)
-      .where(eq(attributes.articleTypeId, maceta!.id));
+      .where(and(eq(attributes.articleTypeId, maceta!.id), eq(attributes.key, 'material')));
     expect(material!.name).toBe('Material base');
   });
 

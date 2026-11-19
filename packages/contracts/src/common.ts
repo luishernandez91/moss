@@ -3,6 +3,13 @@ import { z } from 'zod';
 /** Monto en centavos enteros (ver AGENTS.md, regla 1). */
 export const centsSchema = z.number().int('El monto debe estar en centavos enteros');
 
+/** Porcentaje entero de 0 a 100: los porcentajes del proyecto no llevan decimales. */
+export const percentSchema = z
+  .number()
+  .int('El porcentaje debe ser entero')
+  .min(0, 'El porcentaje no puede ser negativo')
+  .max(100, 'El porcentaje no puede pasar de 100');
+
 /** Fecha de negocio `AAAA-MM-DD`. */
 export const businessDateSchema = z.iso.date({ error: 'Usa el formato AAAA-MM-DD' });
 

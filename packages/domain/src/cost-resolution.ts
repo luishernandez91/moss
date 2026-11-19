@@ -18,8 +18,8 @@ export interface Variant {
 export interface Article {
   id: string;
   name: string;
-  /** Unidad de la existencia y del costo promedio de sus variantes (C2); D2 no la usa al costear. */
-  stockUnit?: StockUnit;
+  /** Unidad de la existencia y del costo promedio de sus variantes (`articles.stock_unit NOT NULL`). */
+  stockUnit: StockUnit;
   variants: readonly Variant[];
 }
 

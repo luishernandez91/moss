@@ -121,11 +121,19 @@ describe('roundRatioToCents: único redondeo a centavos', () => {
   });
 });
 
-describe('percentage con porcentajes decimales', () => {
-  it('redondea half-up el valor exacto, sin el error binario de percent / 100', () => {
-    expect(percentage(cents(500), 0.7)).toBe(4); // 3.5¢
-    expect(percentage(cents(1500), 0.7)).toBe(11); // 10.5¢
-    expect(percentage(cents(250), 1.4)).toBe(4); // 3.5¢
-    expect(percentage(cents(154000), 30)).toBe(46200);
+describe('percentage con porcentajes enteros', () => {
+  it('coincide con el valor exacto half-up para todo porcentaje entero de 0 a 100', () => {
+    for (let percent = 0; percent <= 100; percent += 1) {
+      for (const amount of [1, 5, 50, 99, 101, 333, 1550, 154000, 999_999, -250, -1555]) {
+        const exact = Number(roundRatioToCents(BigInt(amount) * BigInt(percent), 100n));
+        expect(percentage(cents(amount), percent)).toBe(exact);
+      }
+    }
+  });
+
+  it('rechaza porcentajes decimales: los porcentajes del proyecto son enteros', () => {
+    for (const percent of [0.7, 1.4, 11.3, Number.NaN]) {
+      expect(() => percentage(cents(500), percent)).toThrow(MoneyError);
+    }
   });
 });

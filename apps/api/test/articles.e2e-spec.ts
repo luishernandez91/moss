@@ -347,6 +347,54 @@ describe('artículos y variantes (PostgreSQL real)', () => {
     expect(history[0]!.changedBy).toEqual({ id: partnerId, name: 'Socio de prueba' });
   });
 
+  it('el SKU de una variante se edita con normalización, formato y unicidad', async () => {
+    const article = await createArticle(
+      maceta('SKU editable', [
+        variant('se1', { forma: 'redonda', diametro: 9 }),
+        variant('se2', { forma: 'cuadrada', diametro: 9 }),
+      ]),
+    );
+    const [first, second] = article.variants;
+    const path = `/api/articles/${article.id}/variants/${first!.id}`;
+    const renamed = await patch(path, { sku: ` ${sku('se1-nuevo').toLowerCase()} ` });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body).toMatchObject({ sku: sku('SE1-NUEVO') });
+    const taken = await patch(path, { sku: second!.sku.toLowerCase() });
+    expect(taken.status).toBe(422);
+    expect(taken.body).toMatchObject({
+      code: 'DUPLICATE_SKU',
+      details: { variantId: second!.id, active: true },
+    });
+    expect((await patch(path, { sku: 'SKU INVÁLIDO' })).body).toMatchObject({
+      code: 'INVALID_SKU',
+    });
+    // El SKU anterior queda libre para otro artículo (p. ej. al corregir una unidad mal capturada).
+    const reused = await createArticle(
+      maceta('SKU reutilizado', [variant('se1', { forma: 'redonda', diametro: 9 })]),
+    );
+    expect(reused.variants[0]!.sku).toBe(sku('SE1'));
+  });
+
+  it('si se borra el socio, su historial de costo se conserva sin socio (ON DELETE SET NULL)', async () => {
+    const otherEmail = `articles-fk-${randomUUID()}@example.test`;
+    const otherUserId = await setPassword(db, otherEmail, 'solo pruebas', 'Socio temporal');
+    const otherCookie = `${SESSION_COOKIE}=${issueSession(otherUserId, 0, process.env.SESSION_SECRET!)}`;
+    const response = await api()
+      .post('/api/articles')
+      .set('Cookie', otherCookie)
+      .send(maceta('Socio borrado', [variant('fk1', { forma: 'redonda', diametro: 7 })]));
+    expect(response.status).toBe(201);
+    const created = response.body as ArticleDetail;
+    await db.delete(partners).where(eq(partners.userId, otherUserId));
+    await db.delete(users).where(eq(users.id, otherUserId));
+    const history = (
+      await get(`/api/articles/${created.id}/variants/${created.variants[0]!.id}/cost-history`)
+    ).body as CostChange[];
+    expect(history).toEqual([
+      expect.objectContaining({ reason: 'initial', averageCost: 1500, changedBy: null }),
+    ]);
+  });
+
   it('desactiva y reactiva artículos; la lista oculta inactivos salvo que se pidan', async () => {
     const article = await createArticle(
       maceta('Inactivo', [variant('i1', { forma: 'redonda', diametro: 6 })]),

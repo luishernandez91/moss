@@ -78,6 +78,8 @@ export interface SeedCounts {
 export interface SeedReport {
   created: SeedCounts;
   existing: SeedCounts;
+  /** Artículos creados en piezas porque el catálogo no les da `unidad_consumo`. */
+  defaultedToPiece: string[];
 }
 
 /** Choque con datos existentes o con las reglas: la transacción se revierte completa. */
@@ -170,6 +172,7 @@ function values(
 export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<SeedReport> {
   const created: SeedCounts = { articleTypes: 0, attributes: 0, articles: 0, variants: 0 };
   const existing: SeedCounts = { articleTypes: 0, attributes: 0, articles: 0, variants: 0 };
+  const defaultedToPiece: string[] = [];
 
   await db.transaction(async (tx) => {
     const typeIds = new Map<string, string>();
@@ -317,6 +320,7 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
           })
           .returning({ id: articles.id })) as [{ id: string }];
         created.articles += 1;
+        if (specUnit == null) defaultedToPiece.push(specArticle.nombre.trim());
       }
 
       const siblings = await tx
@@ -380,5 +384,5 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
     }
   });
 
-  return { created, existing };
+  return { created, existing, defaultedToPiece };
 }

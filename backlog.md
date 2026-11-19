@@ -176,10 +176,10 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
   - Spec: pantalla 9
   - Criterios: CRUD con componentes, minutos de armado, precio extra y productos a los que aplica.
 
-- [ ] **C6 · Nuevo atributo de variante en un tipo con artículos**
+- [ ] **C6 · Nuevo atributo requerido o de variante en un tipo con artículos**
   - Depende: C2
   - Spec: pantalla 3
-  - Criterios: nuevo atributo de variante con valor por defecto aplicado a las variantes existentes, en una transacción. Sin esto, un tipo con artículos no puede ganar un atributo de variante (C2 responde 409 `ATTRIBUTE_VALUES_MISSING`).
+  - Criterios: nuevo atributo requerido o de variante en un tipo con artículos, con valor por defecto aplicado en una transacción (a los artículos si es fijo, a las variantes si define variante). Sin esto, C2 responde 409 `ATTRIBUTE_VALUES_MISSING`.
 
 ---
 
