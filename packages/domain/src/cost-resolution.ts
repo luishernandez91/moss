@@ -1,6 +1,7 @@
 import { add, cents, multiply, type Cents } from './money.js';
 
-export const SIZE_PLACEHOLDER = '{tamano}';
+/** «Mismo tamaño que se produce» en un filtro de receta; `{tamano}` en la especificación. */
+export const SIZE_PLACEHOLDER = '{size}';
 export const MAX_PRODUCT_TREE_DEPTH = 3;
 
 export type SizeId = string;

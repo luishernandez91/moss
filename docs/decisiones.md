@@ -2,6 +2,17 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-19 · Nombres en inglés en base de datos y código
+
+- **Contexto:** AGENTS.md pide código en inglés, pero la especificación (§9) modela en español y la decisión de D3 decía que el origen del precio se guardaría «en la base» como `manual`, `campana`, `lista`, `general`. C1 crea el primer enum de la base, así que hacía falta fijar la regla antes.
+- **Decisión:**
+  - Base de datos y código en inglés: tablas, columnas, enums y literales del dominio. Español solo en la interfaz (etiquetas, mensajes) y en la documentación.
+  - §9 conserva el modelo en español y agrega una tabla de equivalencias español → inglés de tablas y enums, en lugar de reescribirse.
+  - Sustituye expresamente lo dicho en D3 sobre valores en español en la base: `price_source` guarda `general`, `list`, `campaign`, `manual`.
+  - Inventario de `packages/domain` y `packages/contracts`: los tipos ya usaban inglés (`PriceSource`, `CampaignItemCostOrigin`, `category`, estados). El único literal en español era `SIZE_PLACEHOLDER = '{tamano}'`, que pasa a `'{size}'`; además se corrigen dos comentarios que hablaban de valores en español en la base. Es solo un renombre (commit aparte en el PR de C1).
+  - `docs/datos/catalogo-ejemplo.json` sigue en los nombres de la especificación. La fixture de pruebas de D2 traduce `{tamano}` a `SIZE_PLACEHOLDER`, y el seed de C2 hará la misma traducción.
+- **Consecuencias:** las historias que crean tablas usan los nombres de la tabla de equivalencias. Las claves de atributo y los valores capturados por los usuarios son datos y se guardan como se escriben.
+
 ## 2026-11-19 · Columna de notas en campañas
 
 - **Contexto:** la pantalla 12 dice que al clonar se copian las notas y D8 las copia en dominio, pero `campanas` en §9 no tenía dónde guardarlas. La decisión de D8 dejó pendiente dónde persistirlas.

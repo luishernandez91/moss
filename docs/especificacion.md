@@ -338,6 +338,30 @@ precios_lista(id, lista_id, variante_id NULL, producto_id NULL, tamano_id NULL,
 
 En `campana_items`, `producto_id` y `variante_id` son excluyentes: exactamente uno tiene valor. El JSON de atributos se valida en el backend contra la definición del tipo.
 
+**Equivalencias en base de datos y código.** Este modelo usa nombres en español; la base de datos y el código usan inglés en tablas, columnas, enums y literales del dominio (decisión del 19 nov 2026). El español queda solo en la interfaz. Las columnas se traducen en `snake_case` con el glosario de `AGENTS.md` (ej. `tipo_articulo_id` → `article_type_id`).
+
+| Especificación | Base de datos y código |
+| --- | --- |
+| `tipos_articulo`, `atributos`, `articulos`, `articulo_variantes` | `article_types`, `attributes`, `articles`, `variants` |
+| `movimientos_inventario`, `tamanos` | `inventory_movements`, `sizes` |
+| `productos`, `producto_precios`, `componentes` | `products`, `product_prices`, `recipe_components` |
+| `extras`, `extra_componentes` | `add_ons`, `add_on_components` |
+| `campanas`, `campana_items`, `campana_eventos` | `campaigns`, `campaign_items`, `campaign_events` |
+| `gastos`, `producciones`, `ventas`, `venta_items` | `expenses`, `production_runs`, `sales`, `sale_lines` |
+| `usuarios`, `socios` | `users`, `partners` |
+| `clientes`, `cotizaciones`, `cotizacion_items`, `pedidos`, `pedido_pagos` | `customers`, `quotes`, `quote_lines`, `orders`, `order_payments` |
+| `listas_precios`, `precios_lista` | `price_lists`, `price_list_entries` |
+| `tipo_dato`: `texto`, `numero`, `lista`, `booleano` | `data_type`: `text`, `number`, `list`, `boolean` |
+| `estado` de campaña: `borrador`, `programada`, `cerrada`, `cancelada` | `status`: `draft`, `scheduled`, `closed`, `cancelled` |
+| `origen_costo`: `catalogo`, `compra`, `manual` | `cost_origin`: `catalog`, `purchase`, `manual` |
+| `origen_precio`: `general`, `lista`, `campana`, `manual` | `price_source`: `general`, `list`, `campaign`, `manual` |
+| `componentes.tipo`: `material`, `mano_obra` | `category`: `material`, `labor` |
+| `movimientos_inventario.tipo`: `compra`, `venta`, `consumo`, `merma`, `ajuste` | `kind`: `purchase`, `sale`, `consumption`, `waste`, `adjustment` |
+| `pedido_pagos.tipo`: `anticipo`, `liquidacion` | `kind`: `deposit`, `final_payment` |
+| `{tamano}` en un filtro de receta | `{size}` |
+
+Las claves de atributo (`atributos.clave`) y los valores que capturan los usuarios (opciones de lista, unidades) son datos, no literales del código, y se guardan como se escriben.
+
 ## 10. Casos de prueba con números reales
 
 | Caso | Esperado |

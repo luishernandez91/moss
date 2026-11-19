@@ -7,7 +7,7 @@ import { isCampaignOpen, type CampaignSchedule } from './campaign-status.js';
 import type { SizeId } from './cost-resolution.js';
 import { add, cents, marginPercent, type Cents } from './money.js';
 
-/** Origen del precio aplicado. En la base: manual, campana, lista, general. */
+/** Origen del precio aplicado. Mismos valores en la base; `manual`, `campana`, `lista`, `general` en la especificación (§9). */
 export type PriceSource = 'manual' | 'campaign' | 'list' | 'general';
 
 export type { PersistedCampaignStatus } from './campaign-status.js';

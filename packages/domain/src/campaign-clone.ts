@@ -10,7 +10,7 @@
 import { canClone, type PersistedCampaignStatus } from './campaign-status.js';
 import { ZERO, type Cents } from './money.js';
 
-/** En la base: `catalogo`, `compra`, `manual`. */
+/** Mismos valores en la base; `catalogo`, `compra`, `manual` en la especificación (§9). */
 export type CampaignItemCostOrigin = 'catalog' | 'purchase' | 'manual';
 
 export interface CloneSourceCampaign {
