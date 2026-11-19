@@ -103,6 +103,7 @@ Textos visibles para el usuario: español de México, montos como `$1,540.00`, f
 4. Commits en formato Conventional Commits, en inglés: `feat(domain): resolve inherited recipe costs`.
 5. Al terminar, marca la historia en `backlog.md` y anota cualquier decisión nueva en `docs/decisiones.md`.
 6. CI es el job `check` de GitHub Actions (`.github/workflows/ci.yml`); corre en cada push a `main` y en cada PR. Antes de reportar, revisa su estado con `gh pr checks <número>`.
+7. Al terminar una historia: abrir PR hacia main, esperar CI aprobado y reportar. Nunca fusionar sin autorización explícita.
 
 ## Límites
 
