@@ -42,7 +42,10 @@ export interface AttributeDefinitionInput {
 /** Cambios permitidos: el tipo de dato y la clave no cambian después de crear el atributo. */
 export type AttributeDefinitionPatch = Partial<
   Pick<AttributeDefinitionInput, 'name' | 'unit' | 'options' | 'required' | 'definesVariant'>
->;
+> & {
+  /** Solo se acepta si es igual a la actual: la clave es inmutable. */
+  key?: string;
+};
 
 export interface AttributeDefinition {
   /** Clave de los valores en JSONB; se genera del nombre al crear y no cambia. */
@@ -61,7 +64,8 @@ export type ArticleTypeErrorCode =
   | 'KEY_CONFLICT'
   | 'INVALID_UNIT'
   | 'INVALID_OPTIONS'
-  | 'VARIANT_REQUIRES_REQUIRED';
+  | 'VARIANT_REQUIRES_REQUIRED'
+  | 'KEY_IMMUTABLE';
 
 export class ArticleTypeError extends Error {
   override name = 'ArticleTypeError';
@@ -253,6 +257,12 @@ export function updateAttributeDefinition(
   patch: AttributeDefinitionPatch,
   siblings: readonly ExistingAttribute[],
 ): AttributeDefinition {
+  if (patch.key !== undefined && patch.key !== current.key) {
+    throw new ArticleTypeError(
+      'KEY_IMMUTABLE',
+      `La clave «${current.key}» no cambia; renombra el atributo para cambiar solo su etiqueta.`,
+    );
+  }
   const name =
     patch.name === undefined
       ? current.name
@@ -266,8 +276,10 @@ export function updateAttributeDefinition(
     current.dataType,
     patch.options === undefined ? current.options : patch.options,
   );
-  const required = patch.required ?? current.required;
   const definesVariant = patch.definesVariant ?? current.definesVariant;
+  // Marcar «define variante» sin indicar «requerido» lo vuelve requerido; un «false» explícito falla.
+  const required =
+    patch.required ?? applyVariantRule({ required: current.required, definesVariant }).required;
   assertVariantRule(required, definesVariant);
   return {
     key: current.key,

@@ -285,9 +285,16 @@ atributos(id, tipo_articulo_id, clave, nombre,
 -- es la llave de los valores en JSONB. Única por tipo, igual que el nombre.
 -- Unidad solo en número; opciones si y solo si es lista; define_variante ⇒ requerido.
 articulos(id, tipo_articulo_id, nombre, descripcion, foto,
+          unidad_existencia ENUM('pieza','m','kg','l','bulto'),
           atributos_fijos JSONB, se_vende, se_usa_en_recetas, activo)
-articulo_variantes(id, articulo_id, sku, atributos JSONB,
-          costo_promedio, precio NULL, existencia, activo)
+-- unidad_existencia: la existencia y el costo promedio de todas sus variantes se expresan en ella.
+articulo_variantes(id, articulo_id, sku UNIQUE, atributos JSONB,
+          costo_promedio, precio NULL, existencia NUMERIC(12,3), activo)
+-- SKU único en todo el catálogo y combinación de atributos única por artículo, también contra
+-- variantes inactivas. Un artículo sin atributos de variante tiene una sola variante con atributos {}.
+-- Artículos y variantes no se borran: se desactivan.
+cambios_costo_variante(id, variante_id, costo_anterior NULL, costo_promedio,
+          motivo ENUM('inicial','manual'), socio_id NULL, cambiado_en)
 movimientos_inventario(id, variante_id, campana_id NULL,
           tipo ENUM('compra','venta','consumo','merma','ajuste'),
           cantidad, costo_unitario, fecha)
@@ -345,7 +352,7 @@ En `campana_items`, `producto_id` y `variante_id` son excluyentes: exactamente u
 
 | Especificación | Base de datos y código |
 | --- | --- |
-| `tipos_articulo`, `atributos`, `articulos`, `articulo_variantes` | `article_types`, `attributes`, `articles`, `variants` |
+| `tipos_articulo`, `atributos`, `articulos`, `articulo_variantes`, `cambios_costo_variante` | `article_types`, `attributes`, `articles`, `article_variants`, `variant_cost_changes` |
 | `movimientos_inventario`, `tamanos` | `inventory_movements`, `sizes` |
 | `productos`, `producto_precios`, `componentes` | `products`, `product_prices`, `recipe_components` |
 | `extras`, `extra_componentes` | `add_ons`, `add_on_components` |
@@ -355,6 +362,8 @@ En `campana_items`, `producto_id` y `variante_id` son excluyentes: exactamente u
 | `clientes`, `cotizaciones`, `cotizacion_items`, `pedidos`, `pedido_pagos` | `customers`, `quotes`, `quote_lines`, `orders`, `order_payments` |
 | `listas_precios`, `precios_lista` | `price_lists`, `price_list_entries` |
 | `tipo_dato`: `texto`, `numero`, `lista`, `booleano` | `data_type`: `text`, `number`, `list`, `boolean` |
+| `unidad_existencia`: `pieza`, `m`, `kg`, `l`, `bulto` | `stock_unit`: `piece`, `m`, `kg`, `l`, `bag` |
+| `cambios_costo_variante.motivo`: `inicial`, `manual` | `reason`: `initial`, `manual` |
 | `estado` de campaña: `borrador`, `programada`, `cerrada`, `cancelada` | `status`: `draft`, `scheduled`, `closed`, `cancelled` |
 | `origen_costo`: `catalogo`, `compra`, `manual` | `cost_origin`: `catalog`, `purchase`, `manual` |
 | `origen_precio`: `general`, `lista`, `campana`, `manual` | `price_source`: `general`, `list`, `campaign`, `manual` |

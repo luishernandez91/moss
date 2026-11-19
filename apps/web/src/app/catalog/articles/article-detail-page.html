@@ -1,0 +1,258 @@
+<section class="page">
+  <a class="back" routerLink="/catalogo"><mat-icon>chevron_left</mat-icon> Catálogo</a>
+
+  @if (loadError()) {
+    <p class="error" role="alert">{{ loadError() }}</p>
+  } @else if (article.value(); as article) {
+    <header class="card header" [class.inactive-card]="!article.active">
+      <span class="thumb" aria-hidden="true"><mat-icon>inventory_2</mat-icon></span>
+      <div class="title">
+        <div class="title-row">
+          <h1>{{ article.name }}</h1>
+          <span class="pill">{{ article.articleType.name }}</span>
+          @if (!article.active) {
+            <span class="pill muted">Inactivo</span>
+          }
+        </div>
+        @if (fixedSummary()) {
+          <p class="fixed">{{ fixedSummary() }}</p>
+        }
+        <p class="muted-text">{{ stockSummary() }}</p>
+      </div>
+      <div class="header-actions">
+        <mat-slide-toggle [checked]="article.sold" (change)="toggleFlag('sold', $event)"
+          >Se vende</mat-slide-toggle
+        >
+        <mat-slide-toggle
+          [checked]="article.usedInRecipes"
+          (change)="toggleFlag('usedInRecipes', $event)"
+          >Se usa en recetas</mat-slide-toggle
+        >
+      </div>
+      <button
+        mat-icon-button
+        type="button"
+        class="menu"
+        aria-label="Acciones del artículo"
+        [matMenuTriggerFor]="articleMenu"
+      >
+        <mat-icon>more_vert</mat-icon>
+      </button>
+      <mat-menu #articleMenu="matMenu">
+        <button mat-menu-item type="button" (click)="editArticle()">Editar artículo</button>
+        @if (article.active) {
+          <button mat-menu-item type="button" (click)="setArticleActive(false)">
+            Desactivar artículo
+          </button>
+        } @else {
+          <button mat-menu-item type="button" (click)="setArticleActive(true)">
+            Reactivar artículo
+          </button>
+        }
+      </mat-menu>
+    </header>
+
+    <div class="layout" [class.desktop]="isDesktop()">
+      <section class="variants" [class.card]="isDesktop()" aria-labelledby="variants-title">
+        <div class="section-header">
+          <h2 id="variants-title">Variantes ({{ visibleVariants().length }})</h2>
+          <div class="section-actions">
+            <button
+              type="button"
+              class="chip"
+              aria-label="Mostrar inactivas"
+              [class.selected]="showInactive()"
+              [attr.aria-pressed]="showInactive()"
+              (click)="showInactive.set(!showInactive())"
+            >
+              Mostrar inactivas
+            </button>
+            @if (isDesktop()) {
+              <button mat-flat-button type="button" (click)="editVariant()">
+                <mat-icon>add</mat-icon> Agregar variante
+              </button>
+            } @else {
+              <button mat-button type="button" (click)="editVariant()">
+                <mat-icon>add</mat-icon> Agregar variante
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (isDesktop()) {
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  @for (attribute of variantAttributes(); track attribute.key) {
+                    <th>{{ attribute.name }}</th>
+                  }
+                  <th class="number">Costo prom.</th>
+                  <th class="number">Precio</th>
+                  <th class="number">Existencia</th>
+                  <th><span class="visually-hidden">Acciones</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (variant of visibleVariants(); track variant.id) {
+                  <tr
+                    [class.selected]="variant.id === selectedVariant()?.id"
+                    [class.inactive]="!variant.active"
+                    (click)="select(variant)"
+                  >
+                    <td class="mono">
+                      {{ variant.sku }}
+                      @if (!variant.active) {
+                        <span class="pill muted">Inactiva</span>
+                      }
+                    </td>
+                    @for (attribute of variantAttributes(); track attribute.key) {
+                      <td>{{ value(attribute, variant.attributes[attribute.key]) }}</td>
+                    }
+                    <td class="number">
+                      {{ formatUnitCost(variant.averageCost, article.stockUnit) }}
+                    </td>
+                    <td class="number strong">
+                      {{ variant.price === null ? '—' : formatMoney(variant.price) }}
+                    </td>
+                    <td class="number">{{ formatStock(variant.stock, article.stockUnit) }}</td>
+                    <td class="row-actions">
+                      <button
+                        mat-icon-button
+                        type="button"
+                        [attr.aria-label]="'Editar ' + variant.sku"
+                        (click)="editVariant(variant); $event.stopPropagation()"
+                      >
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      @if (variant.active) {
+                        <button
+                          mat-icon-button
+                          type="button"
+                          [attr.aria-label]="'Desactivar ' + variant.sku"
+                          (click)="setVariantActive(variant, false); $event.stopPropagation()"
+                        >
+                          <mat-icon>visibility_off</mat-icon>
+                        </button>
+                      } @else {
+                        <button
+                          mat-icon-button
+                          type="button"
+                          [attr.aria-label]="'Reactivar ' + variant.sku"
+                          (click)="setVariantActive(variant, true); $event.stopPropagation()"
+                        >
+                          <mat-icon>restore</mat-icon>
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <ul class="variant-cards">
+            @for (variant of visibleVariants(); track variant.id) {
+              <li
+                class="variant-card card"
+                [class.inactive]="!variant.active"
+                (click)="select(variant)"
+              >
+                <div class="variant-top">
+                  <strong class="mono">{{ variant.sku }}</strong>
+                  @if (!variant.active) {
+                    <span class="pill muted">Inactiva</span>
+                  }
+                  <span class="spacer"></span>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    [attr.aria-label]="'Editar ' + variant.sku"
+                    (click)="editVariant(variant); $event.stopPropagation()"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  @if (variant.active) {
+                    <button
+                      mat-icon-button
+                      type="button"
+                      [attr.aria-label]="'Desactivar ' + variant.sku"
+                      (click)="setVariantActive(variant, false); $event.stopPropagation()"
+                    >
+                      <mat-icon>visibility_off</mat-icon>
+                    </button>
+                  } @else {
+                    <button
+                      mat-icon-button
+                      type="button"
+                      [attr.aria-label]="'Reactivar ' + variant.sku"
+                      (click)="setVariantActive(variant, true); $event.stopPropagation()"
+                    >
+                      <mat-icon>restore</mat-icon>
+                    </button>
+                  }
+                </div>
+                @if (variantAttributes().length > 0) {
+                  <div class="pills">
+                    @for (attribute of variantAttributes(); track attribute.key) {
+                      <span class="pill">{{
+                        value(attribute, variant.attributes[attribute.key])
+                      }}</span>
+                    }
+                  </div>
+                }
+                <dl class="numbers">
+                  <div>
+                    <dt>Costo</dt>
+                    <dd>{{ formatUnitCost(variant.averageCost, article.stockUnit) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Precio</dt>
+                    <dd>{{ variant.price === null ? '—' : formatMoney(variant.price) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Existencia</dt>
+                    <dd>{{ formatStock(variant.stock, article.stockUnit) }}</dd>
+                  </div>
+                </dl>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      @if (selectedVariant(); as variant) {
+        <section class="history-card card" aria-labelledby="history-title">
+          @if (isDesktop()) {
+            <h2 id="history-title">Historial de costo</h2>
+            <p class="mono muted-text">{{ variant.sku }}</p>
+            <ng-container *ngTemplateOutlet="entries" />
+          } @else {
+            <details>
+              <summary id="history-title">
+                Ver historial de costo · <span class="mono">{{ variant.sku }}</span>
+              </summary>
+              <ng-container *ngTemplateOutlet="entries" />
+            </details>
+          }
+          <ng-template #entries>
+            <ul class="history">
+              @for (entry of history.value(); track entry.id) {
+                <li>
+                  <span
+                    >{{ formatDateTime(entry.changedAt) }} · {{ reasons[entry.reason] }}
+                    @if (entry.changedBy) {
+                      ({{ entry.changedBy.name }})
+                    }
+                  </span>
+                  <strong>{{ formatUnitCost(entry.averageCost, article.stockUnit) }}</strong>
+                </li>
+              }
+            </ul>
+          </ng-template>
+        </section>
+      }
+    </div>
+  }
+</section>

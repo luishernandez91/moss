@@ -12,6 +12,7 @@ import type {
   RecipeComponent,
 } from '../cost-resolution.js';
 import { SIZE_PLACEHOLDER } from '../cost-resolution.js';
+import type { StockUnit } from '../article.js';
 import { fromPesos, type Cents } from '../money.js';
 
 /** El catálogo de ejemplo usa los nombres de la especificación: `{tamano}` es `SIZE_PLACEHOLDER`. */
@@ -59,6 +60,7 @@ interface RawAddOn {
 interface RawArticle {
   id: string;
   nombre: string;
+  atributos_fijos?: Record<string, unknown>;
   variantes: {
     sku: string;
     atributos: Record<string, AttributeValue>;
@@ -106,9 +108,13 @@ function toComponent(raw: RawComponent, fallbackId: string): RecipeComponent {
   return { ...base, kind: 'fixed', concept: raw.concepto, amount: perSizePesos(raw.monto) };
 }
 
+/** `unidad_consumo` del catálogo de ejemplo; sin ella, la existencia se cuenta en piezas. */
+const STOCK_UNIT_FROM_SPEC: Record<string, StockUnit> = { metro: 'm', pieza: 'piece' };
+
 export const sampleArticles: Article[] = (catalog.articulos as RawArticle[]).map((article) => ({
   id: article.id,
   name: article.nombre,
+  stockUnit: STOCK_UNIT_FROM_SPEC[String(article.atributos_fijos?.['unidad_consumo'])] ?? 'piece',
   variants: article.variantes.map((variant) => ({
     sku: variant.sku,
     attributes: variant.atributos,

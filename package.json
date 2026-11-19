@@ -21,7 +21,7 @@
     "db:down": "docker compose down",
     "db:generate": "pnpm build:packages && pnpm --filter api db:generate",
     "db:migrate": "pnpm --filter api db:migrate",
-    "db:seed": "pnpm --filter api db:seed"
+    "db:seed": "pnpm build:packages && pnpm --filter api build && pnpm --filter api db:seed"
   },
   "devDependencies": {
     "prettier": "^3.8.1",

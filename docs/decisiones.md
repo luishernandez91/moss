@@ -2,6 +2,23 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-19 · Artículos y variantes (C2)
+
+- **Contexto:** C2 implementa las pantallas 4 y 5 sobre el modelo híbrido de C1. Faltaba definir cómo se representa un artículo sin atributos de variante, la unidad de existencia, qué genera historial de costo, los cambios incompatibles a atributos en uso y el comportamiento del seed.
+- **Decisión** (diseño aprobado por el usuario con ajustes):
+  - Tablas `articles`, `article_variants` (la tabla de equivalencias de §9 se corrigió de `variants`) y `variant_cost_changes`, en la migración `0003_articles`.
+  - Valores de atributo validados con `buildAttributesSchema(definitions, scope)` de `packages/contracts`, en web y API: fijos en `articles.fixed_attributes`, de variante en `article_variants.attributes`. Requeridos activos obligatorios; inactivos opcionales; claves desconocidas rechazadas.
+  - Un artículo sin atributos de variante tiene una sola variante explícita con `{}` (§9: costo, precio y existencia solo existen en la variante). Crear un artículo exige al menos una variante.
+  - SKU (recortado en mayúsculas, `^[A-Z0-9][A-Z0-9-]{0,39}$`) único en todo el catálogo y combinación única por artículo, también contra inactivas. El conflicto con una inactiva responde con `details: { variantId, active: false }` y la interfaz ofrece «Reactivar». Artículos y variantes no se borran; se desactivan.
+  - Duplicados detectados por el dominio: 422 `DUPLICATE_SKU` / `DUPLICATE_COMBINATION`, igual que las claves duplicadas de C1; la carrera que rechaza la base responde 409 con el mismo código.
+  - `articles.stock_unit` obligatoria, en inglés según la regla de nombres: `piece`, `m`, `kg`, `l`, `bag` (pieza, m, kg, l, bulto en la interfaz). Existencia `numeric(12,3)` capturada a mano hasta F2.1. La unidad no cambia después de crear el artículo. En D2 es opcional (`Article.stockUnit?`) porque el costeo no la usa.
+  - Historial: entrada `initial` al crear una variante (también en el seed, sin socio) y `manual` al editar el costo promedio, solo si cambia. Precio, existencia y atributos no generan entrada. El socio se guarda con `ON DELETE SET NULL`.
+  - Cambios a atributos en uso (`assessAttributeChange`, 409): borrar, quitar o renombrar una opción en uso, cambiar la unidad o «define variante» → `ATTRIBUTE_IN_USE`; marcar requerido con valores faltantes, crear un atributo requerido o de variante en un tipo con artículos, o marcar «define variante» si el tipo tiene variantes → `ATTRIBUTE_VALUES_MISSING`. Marcar «define variante» sin indicar «requerido» lo vuelve requerido. La clave es inmutable: un cambio de clave llega al dominio y responde 422 `KEY_IMMUTABLE` (antes 400). El tipo de dato sigue siendo 400. Borrar un tipo con artículos → `ARTICLE_TYPE_IN_USE`.
+  - Filtros: `attr=clave:valor` separado en el primer «:»; `inStock` exige una variante activa con existencia que cumpla también los filtros de variante (con o sin ellos).
+  - Redondeo a centavos: un solo helper, `roundRatioToCents(numerador, denominador)`, half-up simétrico exacto con `bigint`. `multiply` (que ahora toma la cantidad como el decimal escrito), `percentageBps` y el prorrateo de D6 lo usan; F2.1 lo usará para promedios ponderados. Las pruebas de D2, D3, D6 y D7 no cambiaron.
+  - Seed: `pnpm db:seed` crea en una transacción solo lo que falta (tipos por nombre, atributos por clave, artículos por tipo y nombre, variantes por SKU) y nunca actualiza ni borra. Un choque aborta todo y nombra el conflicto. `unidad_consumo` llena `stock_unit` y no se crea como atributo; sin ella, `piece`. Etiquetas en español con un mapa que genera exactamente cada clave. `{tamano}` → `{size}` queda para C4.
+- **Consecuencias:** un tipo con artículos no puede ganar un atributo de variante; se registró C6 (valor por defecto en una transacción). K4 y F2.1 agregarán motivos de historial por compra y movimientos. Sin dependencias nuevas.
+
 ## 2026-11-19 · Color requerido en materiales del catálogo de ejemplo
 
 - **Contexto:** `docs/datos/catalogo-ejemplo.json` definía `material.color` con `requerido: false` y `define_variante: true`, que la regla de C1 «define variante ⇒ requerido» rechaza. Se revisaron los artículos de tipo material: hilo de cáñamo (natural), liga de tela (café, rojo) y limpiapipas (café). Todas sus variantes tienen color.

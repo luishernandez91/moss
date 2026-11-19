@@ -2,13 +2,15 @@
  * Esquema de Drizzle. Las tablas se agregan historia por historia (ver backlog.md).
  * Nombres en inglés según el glosario de AGENTS.md; montos en centavos enteros.
  */
-import { ATTRIBUTE_DATA_TYPES } from '@moss/domain';
+import { ATTRIBUTE_DATA_TYPES, STOCK_UNITS } from '@moss/domain';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -80,4 +82,88 @@ export const attributes = pgTable(
       sql`NOT ${table.definesVariant} OR ${table.required}`,
     ),
   ],
+);
+
+// C2 · Artículos y variantes. Sin borrado: se desactivan (`active`).
+export const stockUnit = pgEnum('stock_unit', STOCK_UNITS);
+export const costChangeReason = pgEnum('cost_change_reason', ['initial', 'manual']);
+
+export const articles = pgTable(
+  'articles',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    articleTypeId: uuid('article_type_id')
+      .notNull()
+      .references(() => articleTypes.id, { onDelete: 'restrict' }),
+    name: text().notNull(),
+    description: text(),
+    /** Unidad de la existencia y del costo promedio de todas sus variantes. */
+    stockUnit: stockUnit('stock_unit').notNull(),
+    fixedAttributes: jsonb('fixed_attributes')
+      .$type<Record<string, string | number | boolean>>()
+      .notNull()
+      .default({}),
+    sold: boolean().notNull(),
+    usedInRecipes: boolean('used_in_recipes').notNull(),
+    active: boolean().notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('articles_type_idx').on(table.articleTypeId),
+    index('articles_fixed_attributes_idx').using(
+      'gin',
+      sql`${table.fixedAttributes} jsonb_path_ops`,
+    ),
+    check('articles_sold_or_recipes', sql`${table.sold} OR ${table.usedInRecipes}`),
+  ],
+);
+
+export const articleVariants = pgTable(
+  'article_variants',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    articleId: uuid('article_id')
+      .notNull()
+      .references(() => articles.id, { onDelete: 'restrict' }),
+    /** Normalizado en mayúsculas por el dominio; único en todo el catálogo, activo o no. */
+    sku: text().notNull().unique(),
+    attributes: jsonb().$type<Record<string, string | number | boolean>>().notNull().default({}),
+    averageCost: integer('average_cost').notNull(),
+    price: integer(),
+    stock: numeric({ precision: 12, scale: 3, mode: 'number' }).notNull().default(0),
+    active: boolean().notNull().default(true),
+    // clock_timestamp: varias variantes creadas en una transacción conservan su orden.
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .default(sql`clock_timestamp()`),
+  },
+  (table) => [
+    uniqueIndex('article_variants_combination_unique').on(table.articleId, table.attributes),
+    index('article_variants_attributes_idx').using('gin', sql`${table.attributes} jsonb_path_ops`),
+    check('article_variants_cost_non_negative', sql`${table.averageCost} >= 0`),
+    check(
+      'article_variants_price_non_negative',
+      sql`${table.price} IS NULL OR ${table.price} >= 0`,
+    ),
+    check('article_variants_stock_non_negative', sql`${table.stock} >= 0`),
+  ],
+);
+
+/** Historial del costo promedio por variante. K4 y F2.1 agregarán motivos de compra. */
+export const variantCostChanges = pgTable(
+  'variant_cost_changes',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    variantId: uuid('variant_id')
+      .notNull()
+      .references(() => articleVariants.id, { onDelete: 'restrict' }),
+    previousCost: integer('previous_cost'),
+    averageCost: integer('average_cost').notNull(),
+    reason: costChangeReason().notNull(),
+    changedByPartnerId: uuid('changed_by_partner_id').references(() => partners.id, {
+      onDelete: 'set null',
+    }),
+    changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('variant_cost_changes_variant_idx').on(table.variantId, table.changedAt)],
 );

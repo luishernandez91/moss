@@ -143,16 +143,18 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Clave estable por atributo generada del nombre; un choque de claves es un error de dominio claro. El tipo de dato no se edita.
     - Atributos desactivables y borrables. El bloqueo por uso en artículos pasa a C2.
 
-- [ ] **C2 · Artículos y variantes**
+- [x] **C2 · Artículos y variantes**
   - Depende: C1
-  - Spec: pantallas 4 y 5
+  - Spec: pantallas 4 y 5, §9
   - Criterios:
-    - Atributos fijos y de variante validados contra el tipo (en `contracts`, reutilizado por web y API).
-    - SKU único. Filtros de lista por tipo y por atributo usando `jsonb`.
-    - Historial de costos por variante.
+    - Atributos fijos y de variante validados contra el tipo (`buildAttributesSchema` en `contracts`, reutilizado por web y API).
+    - SKU único y combinación única por artículo, también contra inactivas (volver a crearla es reactivarla). Sin borrado: artículos y variantes se desactivan y reactivan, con «Mostrar inactivas».
+    - `articles.stock_unit` (pieza, m, kg, l, bulto) para la existencia (`numeric(12,3)`) y el costo de todas las variantes; la interfaz la muestra como sufijo.
+    - Filtros de lista por tipo, por atributo fijo o de variante (`attr=clave:valor`, separado en el primer «:»), con existencia y por nombre o SKU, usando `jsonb`.
+    - Historial de costos por variante: entrada inicial al crear y manual al editar el costo promedio.
     - `db:seed` carga `docs/datos/catalogo-ejemplo.json` (traduce `{tamano}` a `{size}` y los enums con la tabla de equivalencias de §9).
-    - Borrar un atributo usado por artículos o variantes responde 409 `ATTRIBUTE_IN_USE`; solo se puede desactivar. Lo mismo para los cambios incompatibles con los valores guardados; la lista exacta se define en el diseño de C2 (p. ej. quitar una opción en uso).
-    - Borrar un tipo de artículo con artículos responde 409 y no borra nada.
+    - Borrar un atributo usado por artículos o variantes responde 409 `ATTRIBUTE_IN_USE`; solo se puede desactivar. También 409 al quitar o renombrar una opción en uso, cambiar la unidad o «define variante» de un atributo en uso, y `ATTRIBUTE_VALUES_MISSING` al marcar requerido con valores faltantes, crear un atributo requerido o de variante en un tipo con artículos, o marcar «define variante» si el tipo tiene variantes. Cambiar la clave es 422 `KEY_IMMUTABLE`.
+    - Borrar un tipo de artículo con artículos responde 409 `ARTICLE_TYPE_IN_USE` y no borra nada.
 
 - [ ] **C3 · Tamaños**
   - Depende: E0.5
@@ -167,11 +169,17 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Editor de receta: componentes de artículo con filtro de atributos o de mano de obra, por tamaño opcional, con sustitución.
     - Precio por tamaño. El costo mostrado viene de D2; la UI no calcula.
     - Pantalla de detalle con selector de tamaño y desglose (heredado en gris, sustituido tachado).
+    - `db:seed` agrega productos y recetas del catálogo de ejemplo, de forma idempotente como en C2, y traduce `{tamano}` a `{size}` en los filtros de receta.
 
 - [ ] **C5 · Extras**
   - Depende: C4
   - Spec: pantalla 9
   - Criterios: CRUD con componentes, minutos de armado, precio extra y productos a los que aplica.
+
+- [ ] **C6 · Nuevo atributo de variante en un tipo con artículos**
+  - Depende: C2
+  - Spec: pantalla 3
+  - Criterios: nuevo atributo de variante con valor por defecto aplicado a las variantes existentes, en una transacción. Sin esto, un tipo con artículos no puede ganar un atributo de variante (C2 responde 409 `ATTRIBUTE_VALUES_MISSING`).
 
 ---
 

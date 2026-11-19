@@ -283,10 +283,39 @@ describe('updateAttributeDefinition', () => {
     ).toEqual({ ...current, name: 'Diámetro exterior', unit: 'mm' });
   });
 
+  it('la clave es inmutable: otra clave es un error de dominio y la misma se acepta', () => {
+    expectError(
+      () => updateAttributeDefinition(current, { key: 'diametro_exterior' }, []),
+      'KEY_IMMUTABLE',
+      'La clave «diametro» no cambia; renombra el atributo para cambiar solo su etiqueta.',
+    );
+    expect(updateAttributeDefinition(current, { key: 'diametro' }, [])).toEqual(current);
+  });
+
   it('aplica cambios parciales sobre la definición actual', () => {
     expect(
       updateAttributeDefinition(current, { definesVariant: false, required: false }, []),
     ).toMatchObject({ required: false, definesVariant: false, unit: 'cm' });
+  });
+
+  it('marcar «define variante» sin indicar «requerido» lo vuelve requerido (C2)', () => {
+    const optional = {
+      ...current,
+      key: 'acabado',
+      name: 'Acabado',
+      dataType: 'text' as const,
+      unit: null,
+      required: false,
+      definesVariant: false,
+    };
+    expect(updateAttributeDefinition(optional, { definesVariant: true }, [])).toMatchObject({
+      required: true,
+      definesVariant: true,
+    });
+    expectError(
+      () => updateAttributeDefinition(optional, { definesVariant: true, required: false }, []),
+      'VARIANT_REQUIRES_REQUIRED',
+    );
   });
 
   it('valida la combinación resultante', () => {

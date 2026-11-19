@@ -42,6 +42,13 @@ Componentes compartidos en `componentes/`: `menu-lateral.png` (navegación deskt
 | 03 | Contador de «Maceta» en 3 con cinco atributos en la tabla | El contador es el número de atributos activos del tipo |
 | 03 | Breadcrumb «Configuración › Catálogo» y la opción Configuración activa en el menú | La pantalla pertenece al catálogo (§4) y tiene su propia entrada «Tipos de artículo»; el breadcrumb dice «Catálogo» |
 | 03 | Interruptor «Requerido» editable en atributos que definen variante | Un atributo que define variante siempre es requerido: el interruptor queda activado y deshabilitado |
+| 04, 05 | Fotos de artículo | Sin fotos en C2: un ícono genérico. El almacenamiento de archivos depende del despliegue (pregunta abierta del backlog) |
+| 05 | Gráfica escalonada del historial de costo | Lista de entradas (fecha · motivo · costo); sin gráfica en C2 |
+| 05 | Muestras de color junto al valor | El color es una opción de lista, no un código de color: se muestra solo el texto |
+| 04, 05 | Sin filtros ni acciones para inactivos | Artículos y variantes no se borran: «Mostrar inactivos» o «Mostrar inactivas» y la acción «Reactivar» |
+| 04 | La pastilla «Diámetro: 10 cm» aparece sin forma de agregarla | Al elegir un tipo aparece «Filtrar por atributo» (diálogo de atributo y valor) y «Con existencia» |
+| 05 (mobile) | Barra superior «‹ Artículo» con lápiz | Enlace «‹ Catálogo» y menú «Acciones del artículo» dentro de la página; la barra superior es la del shell |
+| 03 | Se puede agregar cualquier atributo a un tipo | Limitación de C2: un tipo con artículos no puede ganar un atributo requerido ni uno de variante (409 `ATTRIBUTE_VALUES_MISSING`). Se crea opcional y se llena; el de variante con valor por defecto queda para C6 |
 | 24 | Tarjeta «Tipos de campaña» con el interruptor «No permitir empalme dentro del mismo tipo» | El empalme siempre se impide dentro del mismo tipo y no es configurable (§7, pantalla 24): la interfaz no lleva ese interruptor |
 
 Las pantallas 13, 14, 17 y 22 se regeneraron el 11 nov 2026 con la inversión por socio y el reparto 50/50 (ver `docs/decisiones.md`).

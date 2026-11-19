@@ -1,0 +1,201 @@
+<section class="page">
+  <header class="header">
+    <div>
+      <h1>{{ isDesktop() ? 'Catálogo de artículos' : 'Catálogo' }}</h1>
+      @if (isDesktop()) {
+        <p class="subtitle">Insumos y artículos de venta, con sus variantes.</p>
+      }
+    </div>
+    @if (isDesktop()) {
+      <button mat-flat-button type="button" (click)="newArticle()">
+        <mat-icon>add</mat-icon> Nuevo artículo
+      </button>
+    } @else {
+      <button mat-icon-button type="button" aria-label="Nuevo artículo" (click)="newArticle()">
+        <mat-icon>add</mat-icon>
+      </button>
+    }
+  </header>
+
+  <div class="filters">
+    <label class="search">
+      <mat-icon aria-hidden="true">search</mat-icon>
+      <input
+        type="search"
+        placeholder="Buscar por nombre o SKU"
+        aria-label="Buscar por nombre o SKU"
+        [value]="q()"
+        (input)="q.set($any($event.target).value)"
+      />
+    </label>
+    <div class="chips type-chips" role="group" aria-label="Tipo de artículo">
+      <button
+        type="button"
+        class="chip"
+        [class.selected]="typeId() === null"
+        [attr.aria-pressed]="typeId() === null"
+        (click)="selectType(null)"
+      >
+        Todos
+      </button>
+      @for (type of types.value(); track type.id) {
+        <button
+          type="button"
+          class="chip"
+          [class.selected]="typeId() === type.id"
+          [attr.aria-pressed]="typeId() === type.id"
+          (click)="selectType(type.id)"
+        >
+          {{ type.name }}
+        </button>
+      }
+    </div>
+    <div class="chips">
+      @for (filter of attributeFilters(); track filter.key) {
+        <span class="chip selected filter">
+          {{ filter.label }}
+          <button
+            type="button"
+            class="remove"
+            [attr.aria-label]="'Quitar filtro ' + filter.label"
+            (click)="removeAttributeFilter(filter.key)"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </span>
+      }
+      @if (selectedType(); as type) {
+        <button type="button" class="chip" (click)="addAttributeFilter(type)">
+          <mat-icon>tune</mat-icon> Filtrar por atributo
+        </button>
+      }
+      <button
+        type="button"
+        class="chip"
+        aria-label="Solo con existencia"
+        [class.selected]="inStock()"
+        [attr.aria-pressed]="inStock()"
+        (click)="inStock.set(!inStock())"
+      >
+        Con existencia
+      </button>
+      <button
+        type="button"
+        class="chip"
+        aria-label="Mostrar inactivos"
+        [class.selected]="includeInactive()"
+        [attr.aria-pressed]="includeInactive()"
+        (click)="includeInactive.set(!includeInactive())"
+      >
+        Mostrar inactivos
+      </button>
+    </div>
+  </div>
+
+  @if (loadError()) {
+    <p class="error" role="alert">{{ loadError() }}</p>
+  } @else if (articles.hasValue() && articles.value().length === 0) {
+    <div class="empty card">
+      @if (hasFilters()) {
+        <p>No hay artículos con estos filtros.</p>
+      } @else {
+        <p>Aún no hay artículos.</p>
+        <button mat-flat-button type="button" (click)="newArticle()">Crear el primero</button>
+      }
+    </div>
+  } @else if (isDesktop()) {
+    <div class="card table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Artículo</th>
+            <th>Tipo</th>
+            <th class="number">Variantes</th>
+            <th class="number">Costo desde</th>
+            <th class="number">Existencia</th>
+            <th class="center">Se vende</th>
+            <th class="center">Se usa en recetas</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (article of articles.value(); track article.id) {
+            <tr [class.inactive]="!article.active">
+              <td>
+                <a class="name" [routerLink]="['/catalogo', article.id]">
+                  <span class="thumb" aria-hidden="true"><mat-icon>inventory_2</mat-icon></span>
+                  {{ article.name }}
+                </a>
+                @if (!article.active) {
+                  <span class="pill muted">Inactivo</span>
+                }
+              </td>
+              <td>
+                <span class="pill">{{ article.articleType.name }}</span>
+              </td>
+              <td class="number">{{ article.variantCount }}</td>
+              <td class="number">
+                {{
+                  article.costFrom === null
+                    ? '—'
+                    : formatUnitCost(article.costFrom, article.stockUnit)
+                }}
+              </td>
+              <td class="number strong">
+                {{ formatStock(article.totalStock, article.stockUnit) }}
+              </td>
+              <td class="center">
+                @if (article.sold) {
+                  <mat-icon class="check" aria-label="Sí">check</mat-icon>
+                } @else {
+                  <span aria-label="No">—</span>
+                }
+              </td>
+              <td class="center">
+                @if (article.usedInRecipes) {
+                  <mat-icon class="check" aria-label="Sí">check</mat-icon>
+                } @else {
+                  <span aria-label="No">—</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="summary">{{ summary() }}</p>
+  } @else {
+    <ul class="cards">
+      @for (article of articles.value(); track article.id) {
+        <li>
+          <a
+            class="article-card card"
+            [class.inactive]="!article.active"
+            [routerLink]="['/catalogo', article.id]"
+          >
+            <span class="thumb" aria-hidden="true"><mat-icon>inventory_2</mat-icon></span>
+            <span class="card-body">
+              <strong>{{ article.name }}</strong>
+              <span class="pills">
+                <span class="pill">{{ article.articleType.name }}</span>
+                @if (!article.active) {
+                  <span class="pill muted">Inactivo</span>
+                }
+              </span>
+              <span class="meta">
+                Desde
+                <strong>{{
+                  article.costFrom === null
+                    ? '—'
+                    : formatUnitCost(article.costFrom, article.stockUnit)
+                }}</strong>
+                · Exist. <strong>{{ formatStock(article.totalStock, article.stockUnit) }}</strong>
+              </span>
+            </span>
+            <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+          </a>
+        </li>
+      }
+    </ul>
+    <p class="summary">{{ summary() }}</p>
+  }
+</section>

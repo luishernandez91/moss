@@ -1,3 +1,4 @@
+import type { StockUnit } from './article.js';
 import { add, cents, multiply, type Cents } from './money.js';
 
 /** «Mismo tamaño que se produce» en un filtro de receta; `{tamano}` en la especificación. */
@@ -17,6 +18,8 @@ export interface Variant {
 export interface Article {
   id: string;
   name: string;
+  /** Unidad de la existencia y del costo promedio de sus variantes (C2); D2 no la usa al costear. */
+  stockUnit?: StockUnit;
   variants: readonly Variant[];
 }
 
