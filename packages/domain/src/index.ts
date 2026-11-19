@@ -10,3 +10,4 @@ export * from './campaign-clone.js';
 export * from './article-type.js';
 export * from './article.js';
 export * from './attribute-usage.js';
+export * from './partner.js';

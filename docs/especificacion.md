@@ -239,6 +239,7 @@ Cada pedido aceptado crea una campaña de tipo evento, con presupuesto igual a s
 **22. Socios** · MVP
 
 - Participación en ganancia o pérdida de capital: 50/50 por defecto, editable en configuración. El dominio recibe puntos base enteros (`shareBps`, 0–10000; 5000 por defecto), cuya suma debe ser exactamente 10000. La reinversión también usa puntos base enteros (`reinvestmentBps`, 0–10000; 0 por defecto).
+- S1 configura porcentajes enteros de 0 a 100, guardados como puntos base múltiplos de 100 en `partners.share_bps`; la fuente es única para Socios y Configuración. Edición atómica de ambos socios con versión para rechazar cambios concurrentes. Antes de guardar se avisa que aplica a cierres futuros, incluidas campañas abiertas; los snapshots ya registrados no cambian.
 - Por campaña: capital registrado (gastos y aportaciones), trabajo devengado, pagado e impago informativo, participación en el resultado y total. El trabajo impago no es deuda ni se transfiere a otra campaña.
 
 **23. Reportes** · Fase 2
@@ -327,10 +328,8 @@ venta_items(id, venta_id, producto_id NULL, variante_id NULL, tamano_id NULL, ex
 
 -- Acceso (E0.5)
 usuarios(id UUID, correo UNIQUE, hash_contrasena, version_sesion INTEGER DEFAULT 0)
--- E0.5 implementa socios con id UUID, nombre y usuario_id UNIQUE NOT NULL.
--- La participación se incorpora con la historia de socios.
 -- Socios
-socios(id, nombre, participacion_pct, usuario_id NULL)
+socios(id UUID, nombre, share_bps INTEGER 0–10000 múltiplo de 100 DEFAULT 5000, version INTEGER DEFAULT 0, usuario_id UNIQUE NOT NULL)
 
 -- Pedidos (fase 2)
 clientes(id, nombre, whatsapp, tipo, notas)

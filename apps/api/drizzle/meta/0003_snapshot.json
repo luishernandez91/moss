@@ -1,5 +1,5 @@
 {
-  "id": "0320b43c-be40-4140-9ab0-d27fc86b6c67",
+  "id": "85b15990-0b6d-4dff-82d8-a740cf8222aa",
   "prevId": "c4db2bb2-bc2e-48fa-9937-7fe2c6bc50f2",
   "version": "7",
   "dialect": "postgresql",
@@ -51,278 +51,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.article_variants": {
-      "name": "article_variants",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "article_id": {
-          "name": "article_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sku": {
-          "name": "sku",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "attributes": {
-          "name": "attributes",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
-        },
-        "average_cost": {
-          "name": "average_cost",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "price": {
-          "name": "price",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "stock": {
-          "name": "stock",
-          "type": "numeric(12, 3)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "active": {
-          "name": "active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "clock_timestamp()"
-        }
-      },
-      "indexes": {
-        "article_variants_combination_unique": {
-          "name": "article_variants_combination_unique",
-          "columns": [
-            {
-              "expression": "article_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "attributes",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "article_variants_attributes_idx": {
-          "name": "article_variants_attributes_idx",
-          "columns": [
-            {
-              "expression": "\"attributes\" jsonb_path_ops",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gin",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "article_variants_article_id_articles_id_fk": {
-          "name": "article_variants_article_id_articles_id_fk",
-          "tableFrom": "article_variants",
-          "tableTo": "articles",
-          "columnsFrom": [
-            "article_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "article_variants_sku_unique": {
-          "name": "article_variants_sku_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "sku"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "article_variants_cost_non_negative": {
-          "name": "article_variants_cost_non_negative",
-          "value": "\"article_variants\".\"average_cost\" >= 0"
-        },
-        "article_variants_price_non_negative": {
-          "name": "article_variants_price_non_negative",
-          "value": "\"article_variants\".\"price\" IS NULL OR \"article_variants\".\"price\" >= 0"
-        },
-        "article_variants_stock_non_negative": {
-          "name": "article_variants_stock_non_negative",
-          "value": "\"article_variants\".\"stock\" >= 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.articles": {
-      "name": "articles",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "article_type_id": {
-          "name": "article_type_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "stock_unit": {
-          "name": "stock_unit",
-          "type": "stock_unit",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "fixed_attributes": {
-          "name": "fixed_attributes",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
-        },
-        "sold": {
-          "name": "sold",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "used_in_recipes": {
-          "name": "used_in_recipes",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "active": {
-          "name": "active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "articles_type_idx": {
-          "name": "articles_type_idx",
-          "columns": [
-            {
-              "expression": "article_type_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "articles_fixed_attributes_idx": {
-          "name": "articles_fixed_attributes_idx",
-          "columns": [
-            {
-              "expression": "\"fixed_attributes\" jsonb_path_ops",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gin",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "articles_article_type_id_article_types_id_fk": {
-          "name": "articles_article_type_id_article_types_id_fk",
-          "tableFrom": "articles",
-          "tableTo": "article_types",
-          "columnsFrom": [
-            "article_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "articles_sold_or_recipes": {
-          "name": "articles_sold_or_recipes",
-          "value": "\"articles\".\"sold\" OR \"articles\".\"used_in_recipes\""
-        }
-      },
       "isRLSEnabled": false
     },
     "public.attributes": {
@@ -495,6 +223,20 @@
           "primaryKey": false,
           "notNull": true
         },
+        "share_bps": {
+          "name": "share_bps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 5000
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "user_id": {
           "name": "user_id",
           "type": "uuid",
@@ -529,7 +271,20 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "partners_share_bps_range": {
+          "name": "partners_share_bps_range",
+          "value": "\"partners\".\"share_bps\" BETWEEN 0 AND 10000"
+        },
+        "partners_share_bps_whole_percent": {
+          "name": "partners_share_bps_whole_percent",
+          "value": "\"partners\".\"share_bps\" % 100 = 0"
+        },
+        "partners_version_nonnegative": {
+          "name": "partners_version_nonnegative",
+          "value": "\"partners\".\"version\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.users": {
@@ -578,113 +333,6 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
-    },
-    "public.variant_cost_changes": {
-      "name": "variant_cost_changes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "variant_id": {
-          "name": "variant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "previous_cost": {
-          "name": "previous_cost",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "average_cost": {
-          "name": "average_cost",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason": {
-          "name": "reason",
-          "type": "cost_change_reason",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "changed_by_partner_id": {
-          "name": "changed_by_partner_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "changed_at": {
-          "name": "changed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "variant_cost_changes_variant_idx": {
-          "name": "variant_cost_changes_variant_idx",
-          "columns": [
-            {
-              "expression": "variant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "changed_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "variant_cost_changes_variant_id_article_variants_id_fk": {
-          "name": "variant_cost_changes_variant_id_article_variants_id_fk",
-          "tableFrom": "variant_cost_changes",
-          "tableTo": "article_variants",
-          "columnsFrom": [
-            "variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "variant_cost_changes_changed_by_partner_id_partners_id_fk": {
-          "name": "variant_cost_changes_changed_by_partner_id_partners_id_fk",
-          "tableFrom": "variant_cost_changes",
-          "tableTo": "partners",
-          "columnsFrom": [
-            "changed_by_partner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -696,25 +344,6 @@
         "number",
         "list",
         "boolean"
-      ]
-    },
-    "public.cost_change_reason": {
-      "name": "cost_change_reason",
-      "schema": "public",
-      "values": [
-        "initial",
-        "manual"
-      ]
-    },
-    "public.stock_unit": {
-      "name": "stock_unit",
-      "schema": "public",
-      "values": [
-        "piece",
-        "m",
-        "kg",
-        "l",
-        "bag"
       ]
     }
   },

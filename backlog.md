@@ -189,6 +189,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
   - Depende: D4, D5, E0.5
   - Spec: pantalla 11, §5
   - Criterios:
+    - El editor de participación (S1) lista por nombre y estado las campañas no cerradas afectadas.
     - Tabla con restricción `EXCLUDE USING gist (type WITH =, daterange(start_date, end_date, '[]') WITH &&)` para estados que no sean borrador, cerrada o cancelada.
     - Error de empalme traducido a mensaje claro con la campaña con la que choca.
     - Columna `notas` (texto, NULL) en `campanas` (§9), editable en la pantalla 12; D8 la copia al clonar.
@@ -252,15 +253,16 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
 
 ## Fase 1 · MVP: socios, tablero y configuración
 
-- [ ] **S1 · Socios**
+- [x] **S1 · Socios**
   - Depende: E0.5
   - Spec: pantalla 22
   - Criterios: participación en la ganancia 50/50 por defecto, editable y validada a 100%; por campaña: inversión, trabajo pagado, ganancia recibida y total.
+  - Entrega S1: nombres y porcentajes enteros, `share_bps` y `version`, PUT atómico con 409 ante cambios concurrentes, aviso fijo de cierres futuros y límite de dos altas en CLI. «Por campaña» muestra estado vacío hasta los snapshots de K7, sin crear sus tablas. S2 reutiliza el editor y su fuente única; K1 agrega el listado de campañas afectadas. Capturas: `docs/diseno/revisiones/S1/README.md`.
 
 - [ ] **S2 · Configuración**
   - Depende: C3
   - Spec: pantalla 24
-  - Criterios: categorías de gasto, tipos de campaña, participación por defecto (50/50), % reinversión por defecto (0%), margen mínimo, % anticipo mínimo, días de gracia.
+  - Criterios: categorías de gasto, tipos de campaña, participación por defecto (50/50; reutiliza `partners.share_bps` y el editor de S1), % reinversión por defecto (0%), margen mínimo, % anticipo mínimo, días de gracia.
 
 - [ ] **S3 · Dashboard**
   - Depende: K3

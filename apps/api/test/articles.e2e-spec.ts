@@ -14,7 +14,7 @@ import type {
 import { AppModule } from '../src/app.module.js';
 import { DATABASE, type Database } from '../src/database/database.module.js';
 import { partners, users } from '../src/database/schema.js';
-import { setPassword } from '../src/auth/set-password.js';
+import { preparePartners } from './partners-fixture.js';
 import { issueSession, SESSION_COOKIE } from '../src/auth/session.js';
 import { loadEnvFile } from '../src/config/load-env-file.js';
 import { deleteCatalogByPrefix } from './catalog-cleanup.js';
@@ -26,12 +26,10 @@ process.env.SESSION_SECRET = 'solo-pruebas-api-no-usar-en-produccion';
 describe('artículos y variantes (PostgreSQL real)', () => {
   let app: INestApplication<App>;
   let db: Database;
-  let userId: string;
   let partnerId: string;
   let cookie: string;
   const prefix = `e2e-${randomUUID().slice(0, 8)}`;
   const skuPrefix = `E2E${randomUUID().slice(0, 6).toUpperCase()}`;
-  const email = `articles-${randomUUID()}@example.test`;
   let macetaType: string;
   let sustratoType: string;
   const attributeIds: Record<string, string> = {};
@@ -97,12 +95,13 @@ describe('artículos y variantes (PostgreSQL real)', () => {
     app.setGlobalPrefix('api');
     await app.init();
     db = module.get(DATABASE);
-    userId = await setPassword(db, email, 'solo pruebas', 'Socio de prueba');
+    // Socios de prueba fijos de S1 (solo puede haber dos); no se borran al terminar.
+    const user = await preparePartners(db);
     [{ id: partnerId }] = (await db
       .select({ id: partners.id })
       .from(partners)
-      .where(eq(partners.userId, userId))) as [{ id: string }];
-    cookie = `${SESSION_COOKIE}=${issueSession(userId, 0, process.env.SESSION_SECRET!)}`;
+      .where(eq(partners.userId, user.id))) as [{ id: string }];
+    cookie = `${SESSION_COOKIE}=${issueSession(user.id, user.sessionVersion, process.env.SESSION_SECRET!)}`;
     macetaType = await createType('Maceta', [
       {
         name: 'Material',
@@ -130,10 +129,6 @@ describe('artículos y variantes (PostgreSQL real)', () => {
   afterAll(async () => {
     if (db) {
       await deleteCatalogByPrefix(db, prefix);
-      if (userId) {
-        await db.delete(partners).where(eq(partners.userId, userId));
-        await db.delete(users).where(eq(users.id, userId));
-      }
     }
     await app?.close();
   });
@@ -376,9 +371,13 @@ describe('artículos y variantes (PostgreSQL real)', () => {
   });
 
   it('si se borra el socio, su historial de costo se conserva sin socio (ON DELETE SET NULL)', async () => {
-    const otherEmail = `articles-fk-${randomUUID()}@example.test`;
-    const otherUserId = await setPassword(db, otherEmail, 'solo pruebas', 'Socio temporal');
-    const otherCookie = `${SESSION_COOKIE}=${issueSession(otherUserId, 0, process.env.SESSION_SECRET!)}`;
+    // Segundo socio de prueba: se borra y se vuelve a crear con preparePartners al final.
+    const [other] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'e2e-partner-2@example.test'));
+    const otherUserId = other!.id;
+    const otherCookie = `${SESSION_COOKIE}=${issueSession(otherUserId, other!.sessionVersion, process.env.SESSION_SECRET!)}`;
     const response = await api()
       .post('/api/articles')
       .set('Cookie', otherCookie)
@@ -393,6 +392,9 @@ describe('artículos y variantes (PostgreSQL real)', () => {
     expect(history).toEqual([
       expect.objectContaining({ reason: 'initial', averageCost: 1500, changedBy: null }),
     ]);
+    // preparePartners vuelve a fijar las contraseñas (incrementa la versión de sesión): nueva cookie.
+    const restored = await preparePartners(db);
+    cookie = `${SESSION_COOKIE}=${issueSession(restored.id, restored.sessionVersion, process.env.SESSION_SECRET!)}`;
   });
 
   it('desactiva y reactiva artículos; la lista oculta inactivos salvo que se pidan', async () => {

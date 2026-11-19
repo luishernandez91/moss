@@ -7,8 +7,8 @@ import type { App } from 'supertest/types.js';
 import type { ArticleType } from '@moss/contracts';
 import { AppModule } from '../src/app.module.js';
 import { DATABASE, type Database } from '../src/database/database.module.js';
-import { articleTypes, attributes, partners, users } from '../src/database/schema.js';
-import { setPassword } from '../src/auth/set-password.js';
+import { articleTypes, attributes } from '../src/database/schema.js';
+import { preparePartners } from './partners-fixture.js';
 import { issueSession, SESSION_COOKIE } from '../src/auth/session.js';
 import { loadEnvFile } from '../src/config/load-env-file.js';
 
@@ -19,10 +19,8 @@ process.env.SESSION_SECRET = 'solo-pruebas-api-no-usar-en-produccion';
 describe('tipos de artículo y atributos (PostgreSQL real)', () => {
   let app: INestApplication<App>;
   let db: Database;
-  let userId: string;
   let cookie: string;
   const prefix = `e2e-${randomUUID().slice(0, 8)}`;
-  const email = `article-types-${randomUUID()}@example.test`;
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -30,17 +28,13 @@ describe('tipos de artículo y atributos (PostgreSQL real)', () => {
     app.setGlobalPrefix('api');
     await app.init();
     db = module.get(DATABASE);
-    userId = await setPassword(db, email, 'solo pruebas', 'Socio de prueba');
-    cookie = `${SESSION_COOKIE}=${issueSession(userId, 0, process.env.SESSION_SECRET!)}`;
+    const user = await preparePartners(db);
+    cookie = `${SESSION_COOKIE}=${issueSession(user.id, user.sessionVersion, process.env.SESSION_SECRET!)}`;
   });
 
   afterAll(async () => {
     if (db) {
       await db.delete(articleTypes).where(like(articleTypes.name, `${prefix}%`));
-      if (userId) {
-        await db.delete(partners).where(eq(partners.userId, userId));
-        await db.delete(users).where(eq(users.id, userId));
-      }
     }
     await app?.close();
   });
