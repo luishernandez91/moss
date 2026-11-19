@@ -71,15 +71,55 @@ export function percentage(amount: Cents, percent: number): Cents {
 }
 
 /**
+ * Porcentaje en puntos base enteros (10000 = 100%). Producto y redondeo half-up
+ * simétrico exactos, incluso cerca del límite de Cents. No convierte bps a flotantes.
+ */
+export function percentageBps(amount: Cents, bps: number): Cents {
+  assertInteger(amount, 'El monto');
+  if (!Number.isSafeInteger(bps) || bps < 0 || bps > 10000) {
+    throw new MoneyError('Los puntos base deben ser enteros seguros entre 0 y 10000');
+  }
+  const signed = BigInt(amount);
+  const absolute = signed < 0n ? -signed : signed;
+  const rounded = (absolute * BigInt(bps) + 5000n) / 10000n;
+  return cents(Number(signed < 0n ? -rounded : rounded));
+}
+
+/** Ruta exacta para pesos enteros: bps y montos de trabajo expresados en centavos. */
+function allocateIntegers(amount: Cents, weights: readonly number[]): Cents[] {
+  const integerWeights = weights.map((weight) => BigInt(weight));
+  const totalWeight = integerWeights.reduce((sum, weight) => sum + weight, 0n);
+  if (totalWeight === 0n) {
+    throw new MoneyError('La suma de los pesos del reparto no puede ser cero');
+  }
+  const signed = BigInt(amount);
+  const absolute = signed < 0n ? -signed : signed;
+  const shares = integerWeights.map((weight) => (absolute * weight) / totalWeight);
+  let remainder = absolute - shares.reduce((sum, share) => sum + share, 0n);
+  for (let index = 0; remainder > 0n; index = (index + 1) % shares.length) {
+    if (integerWeights[index]! > 0n) {
+      shares[index] = shares[index]! + 1n;
+      remainder -= 1n;
+    }
+  }
+  return shares.map((share) => cents(Number(signed < 0n ? -share : share)));
+}
+
+/**
  * Divide un monto en partes según pesos (ej. [50, 50]) sin perder centavos.
  * El residuo se asigna en orden a las primeras partes, de forma determinista.
+ * Pesos enteros seguros usan aritmética exacta; se conserva el soporte de pesos decimales.
  */
 export function allocate(amount: Cents, weights: readonly number[]): Cents[] {
+  assertInteger(amount, 'El monto');
   if (weights.length === 0) {
     throw new MoneyError('Se necesita al menos una parte para repartir');
   }
   if (weights.some((weight) => weight < 0 || !Number.isFinite(weight))) {
     throw new MoneyError('Los pesos del reparto deben ser números no negativos');
+  }
+  if (weights.every((weight) => Number.isSafeInteger(weight))) {
+    return allocateIntegers(amount, weights);
   }
   const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
   if (totalWeight === 0) {

@@ -13,7 +13,7 @@ El sistema registra las finanzas de Moss & Roots por campañas: cuánto se invie
 - **Un solo catálogo.** Plantas, macetas, sustratos, fertilizantes y materiales son artículos con atributos configurables por tipo y variantes con costo, precio y existencia propios.
 - **Herencia de costos.** Un subproducto hereda la receta de su producto padre y puede agregar o sustituir componentes.
 - **El pasado no cambia.** Cada producción y venta guarda una copia del costo y del precio del momento. Las campañas cerradas son de solo lectura.
-- **El reparto es explícito.** Cada socio registra lo que invierte en cada campaña. Al cerrar, primero cada socio recupera su inversión y su trabajo, y la ganancia restante se divide 50/50.
+- **El reparto es explícito.** Al cerrar se recupera primero la caja neta y el capital de los socios (gastos pagados más aportaciones); el remanente paga trabajo, a prorrata si no alcanza. Solo después se aparta reinversión y se reparte ganancia (50/50 por defecto). El trabajo impago es informativo, no genera deuda ni se arrastra. Esta regla aplica a cierres a partir de la decisión de D7 del 18 nov 2026; los cierres ya liquidados conservan su snapshot y no se recalculan.
 
 ## 2. Modelo de costos y precios
 
@@ -163,7 +163,7 @@ La campaña no se bloquea al pasar la fecha fin: queda "por cerrar" para registr
 - Pestaña Productos: costo de campaña, precio de lista, precio especial editable y margen con semáforo verde, ámbar o rojo. Aviso si el precio especial queda bajo el costo o bajo el margen mínimo.
 - Pestañas Gastos, Producciones y Ventas.
 - Pestaña Costos fijos: prorrateo por unidad producida.
-- Pestaña Inversión por socio: cuánto ha invertido cada socio en la campaña (suma de sus gastos) y cuánto trabajo se le debe, con el detalle de cada compra.
+- Pestaña Inversión por socio: capital registrado (gastos pagados más aportaciones) y trabajo devengado de cada socio, con el detalle de las compras. El pago de trabajo se determina en la cascada de cierre; un importe impago al cerrar no genera deuda.
 - Gasto por categoría y costo de receta contra costo real.
 - Bitácora: programar, cancelar, cerrar, reabrir con motivo.
 
@@ -191,10 +191,13 @@ La campaña no se bloquea al pasar la fecha fin: queda "por cerrar" para registr
 **17. Cierre y reparto** · MVP
 
 - Inventario sobrante, valuado a costo. El producto de temporada vale $0 al cerrar.
-- Cascada: ventas → recuperación de inversión por socio → pago de trabajo por socio → ganancia → reinversión opcional → ganancia a repartir 50/50.
-- Por socio: inversión registrada, recupera inversión, pago por trabajo, ganancia (50%) y total a recibir.
-- Si la campaña tiene pérdida, la pérdida también se divide 50/50: a cada socio se le devuelve lo que puso menos la mitad de la pérdida. Si el resultado de un socio es negativo, la pantalla lo muestra como "debe aportar" a la caja o al otro socio.
-- Confirmación de cierre y bloqueo.
+- Cascada: ventas → recuperación completa de caja neta (gastos pagados por caja − aportaciones de socios) → recuperación de capital por socio (gastos pagados + aportaciones) → pago de trabajo → reinversión opcional → ganancia a repartir según participación (50/50 por defecto).
+- La caja neta puede ser negativa: la caja devuelve aportación no gastada. Se muestran recuperación neta y reinversión por separado, con su suma como total de caja. Totales de socios + total de caja = ventas.
+- El trabajo se paga solo con el remanente después de recuperar caja y capital. Si no alcanza, se prorratea por trabajo devengado, con el centavo residual por ID ascendente; si no hay remanente se paga $0. El trabajo impago no genera deuda ni se arrastra a otras campañas.
+- Por socio: capital registrado, recuperación de capital, trabajo devengado, trabajo pagado, trabajo impago informativo, participación en ganancia o pérdida y total a recibir.
+- Si las ventas no cubren caja neta más capital, se reparte únicamente esa pérdida por participación y no se paga trabajo ni se aparta reinversión. Un total negativo se muestra como "Debe aportar".
+- Resultado informativo = ventas − gastos − todo el trabajo devengado. Puede ser negativo por trabajo impago sin que exista pérdida de capital repartible. El resultado incluyendo inventario también es informativo.
+- Confirmación de cierre, snapshot fijo de todo el resultado y bloqueo. La regla aplica a cierres desde la decisión de D7 del 18 nov 2026; nunca se recalculan cierres ya liquidados.
 
 ## 6. Pantallas: pedidos para eventos
 
@@ -231,8 +234,8 @@ Cada pedido aceptado crea una campaña de tipo evento, con presupuesto igual a s
 
 **22. Socios** · MVP
 
-- Participación en la ganancia: 50/50 fija por defecto, editable en configuración (debe sumar 100%).
-- Por campaña: inversión registrada, trabajo pagado, ganancia recibida y total.
+- Participación en ganancia o pérdida de capital: 50/50 por defecto, editable en configuración. El dominio recibe puntos base enteros (`shareBps`, 0–10000; 5000 por defecto), cuya suma debe ser exactamente 10000. La reinversión también usa puntos base enteros (`reinvestmentBps`, 0–10000; 0 por defecto).
+- Por campaña: capital registrado (gastos y aportaciones), trabajo devengado, pagado e impago informativo, participación en el resultado y total. El trabajo impago no es deuda ni se transfiere a otra campaña.
 
 **23. Reportes** · Fase 2
 
@@ -258,7 +261,7 @@ Cada pedido aceptado crea una campaña de tipo evento, con presupuesto igual a s
 4. **Compras reales.** Una compra registrada como gasto actualiza el costo del item de campaña y lo marca con origen "compra".
 5. **Precio especial.** Solo aplica mientras la campaña está activa o por cerrar. Se avisa si queda bajo el costo o bajo el margen mínimo.
 6. **Empalme.** Se fuerza en PostgreSQL con una restricción `EXCLUDE` sobre `daterange` por tipo de campaña, y se valida también en dominio para dar un mensaje claro.
-7. **Inversión y reparto al cierre.** La inversión de un socio en una campaña es la suma de los gastos que pagó en ella; lo pagado por la caja del negocio no es inversión de nadie. Ganancia = ventas − todos los gastos − trabajo registrado. Al cerrar, a cada socio se le devuelve su inversión y se le paga su trabajo; de la ganancia se aparta el % de reinversión de la campaña (0% por defecto) y el resto se divide 50/50. Con pérdida, la pérdida también se divide 50/50.
+7. **Inversión y reparto al cierre.** Capital del socio = gastos que pagó + aportaciones a caja. Caja neta = gastos pagados por caja − aportaciones totales; se recupera completa, incluso con pérdida, y si es negativa la caja devuelve el sobrante. Las aportaciones son financiación, no gastos, y no se cuentan dos veces. Tras recuperar caja neta y capital se paga el trabajo con el remanente, a prorrata del trabajo devengado si es insuficiente. El trabajo impago no genera deuda ni se arrastra a otras campañas. Si falta dinero para caja neta más capital, el trabajo pagado es cero y esa pérdida de capital se divide por participación (50/50 por defecto); un socio puede deber aportar. Solo si queda ganancia tras pagar todo el trabajo se aparta reinversión y se reparte el resto. Participaciones y reinversión se expresan en puntos base enteros seguros de 0 a 10000; participaciones suman exactamente 10000, con 5000 por socio y reinversión 0 por defecto. Resultado informativo = ventas − gastos − todo el trabajo devengado. El reparto siempre conserva totales de socios + total de caja = ventas. Esta regla sustituye el trabajo como costo para repartir pérdidas, aplica a cierres desde la decisión de D7 del 18 nov 2026 y no recalcula cierres ya liquidados: K7 debe guardar y consultar una copia fija (snapshot) del resultado del cierre.
 8. **Trabajo.** Fabricación de kokedama: $20 por pieza chica. El armado de extras se paga a $2.50 por minuto.
 9. **Inventario de temporada.** Al cerrar, el producto de temporada que sobra (nochebuena) se valúa en $0.
 10. **Fechas.** Todo cálculo de "hoy" usa `America/Mexico_City`.
@@ -337,7 +340,12 @@ En `campana_items`, `producto_id` y `variante_id` son excluyentes: exactamente u
 | Reparto por socio del caso anterior | Luis recibe $1,400 + $770 = $2,170; el otro socio $60 + $600 + $770 = $1,430 (suma $3,600) |
 | Mismo caso con reinversión 30% | Reinversión $462; $539 por socio; Luis $1,939; el otro socio $1,199; caja $462 |
 | Pérdida: ventas $1,000, gastos $1,460 (Luis $1,400, el otro socio $60), sin trabajo | Pérdida $460, $230 por socio; Luis recibe $1,170; el otro socio debe aportar $170 (suma $1,000) |
-| Gasto pagado por la caja del negocio | No suma a la inversión de ningún socio |
+| Gasto pagado por caja y aportaciones | El gasto reduce el resultado; las aportaciones aumentan el capital del socio y reducen la recuperación de caja, sin duplicar gastos |
+| Ventas $1,200; otro socio invirtió $1,000; trabajo de Luis $400 | Luis $200 (trabajo pagado $200, impago $200); otro $1,000; sin reinversión ni pérdida de capital |
+| Ventas $600; Luis invirtió $300 y otro $700; trabajo de Luis $400 | Luis $100; otro $500; trabajo pagado $0, impago $400; pérdida de capital $400 ($200 por socio) |
+| Ventas $1,300; otro socio invirtió $1,000; trabajo Luis $400 / otro $200 | Trabajo a prorrata $200 / $100; totales $200 / $1,100; impago $200 / $100, sin deuda ni arrastre |
+| Nochebuena: ventas $1,380; Luis invirtió $1,400; otro $50 y trabajo $600 | Resultado informativo −$670; pérdida de capital $70; Luis $1,365 y otro $15; trabajo pagado $0 e impago $600. Sustituye $1,065 / $315 del cálculo anterior solo para cierres nuevos |
+| Ventas $100; gastos de caja $20; aportación de Luis $50; sin trabajo ni reinversión | Caja neta −$30; capital Luis $50; ganancia $80; Luis $90, otro $40, caja −$30; suma $100 |
 | Empalme: campaña nueva del 1 al 15 dic contra una programada del 10 al 31 dic, mismo tipo | Rechazada |
 | Empalme: mismo rango, tipos distintos (evento y temporada) | Aceptada |
 | Precio especial $50 sobre costo $53.10 | Aviso de margen negativo |
