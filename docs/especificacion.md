@@ -159,7 +159,7 @@ La campaña no se bloquea al pasar la fecha fin: queda "por cerrar" para registr
 - Paso 2: plantas y productos de la campaña, con costos copiados del catálogo y editables.
 - Paso 3: revisión, guardar como borrador o programar.
 - Validación de empalme entre campañas programadas, activas y por cerrar del mismo tipo; siempre activa. Para correr dos campañas a la vez se usan tipos distintos. Los borradores no se validan.
-- Al clonar: copia nombre, presupuesto, % de reinversión, notas e items, con la opción de tomar costos de la original o del catálogo. No copia gastos, producciones, ventas, inventario sobrante ni fechas. Los precios especiales se copian marcados para revisión.
+- Al clonar: copia nombre, tipo, presupuesto, % de reinversión, notas e items, con la opción de tomar costos de la original o del catálogo. No copia gastos, producciones, ventas, inventario sobrante ni fechas. Los precios especiales se copian marcados para revisión.
 
 **13. Detalle de campaña** · MVP
 
