@@ -2,6 +2,12 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-19 · Columna de notas en campañas
+
+- **Contexto:** la pantalla 12 dice que al clonar se copian las notas y D8 las copia en dominio, pero `campanas` en §9 no tenía dónde guardarlas. La decisión de D8 dejó pendiente dónde persistirlas.
+- **Decisión:** `campanas` tiene la columna `notas` (texto, NULL), confirmado con el usuario. K1 la crea junto con la tabla y K2 la captura y la persiste al clonar.
+- **Consecuencias:** se resuelve el pendiente de «Clonación de campaña (D8)», sin editar esa entrada histórica. Solo cambia documentación: no hay migración porque la tabla de campañas aún no existe.
+
 ## 2026-11-19 · Clonación de campaña (D8)
 
 - **Contexto:** §5 (pantalla 12) lista lo que se copia al clonar, pero omite el tipo de campaña (obligatorio para el empalme), menciona notas que no están en `campanas` (§9), no dice qué origen de costo queda en los items copiados ni qué pasa si un item ya no está en el catálogo, ni cómo nombrar la copia de una copia.
