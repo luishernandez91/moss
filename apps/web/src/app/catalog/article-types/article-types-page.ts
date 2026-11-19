@@ -6,9 +6,10 @@ import type { ComponentType } from '@angular/cdk/portal';
 import { MatDialog, type MatDialogConfig } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSlideToggleModule, type MatSlideToggleChange } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { attributeDataTypeLabels, type ArticleType, type Attribute } from '@moss/contracts';
+import { applyVariantRule } from '@moss/domain';
 import { firstValueFrom, map } from 'rxjs';
 import { apiErrorMessage } from '../../core/api-error';
 import { ConfirmDialog, type ConfirmDialogData } from '../../core/confirm-dialog';
@@ -94,7 +95,7 @@ export class ArticleTypesPage {
       confirm: 'Borrar',
     });
     if (!confirmed) return;
-    await this.run(() => this.api.deleteType(type.id));
+    await this.runAction(() => this.api.deleteType(type.id));
     this.selectedId.set(null);
   }
 
@@ -105,25 +106,43 @@ export class ArticleTypesPage {
     });
   }
 
-  protected toggleRequired(typeId: string, attribute: Attribute, required: boolean): Promise<void> {
-    return this.run(() => this.api.updateAttribute(typeId, attribute.id, { required }));
-  }
-
-  /** Definir variante exige requerido: se envían juntos para que la regla de dominio se cumpla. */
-  protected toggleVariant(
+  protected toggleRequired(
     typeId: string,
     attribute: Attribute,
-    definesVariant: boolean,
+    change: MatSlideToggleChange,
   ): Promise<void> {
-    return this.run(() =>
-      this.api.updateAttribute(typeId, attribute.id, {
-        definesVariant,
-        ...(definesVariant && { required: true }),
-      }),
+    return this.run(change, () =>
+      this.api.updateAttribute(typeId, attribute.id, { required: change.checked }),
     );
   }
 
-  private async run(action: () => Promise<unknown>): Promise<void> {
+  /** «Define variante» implica «requerido» (regla del dominio): se envían juntos. */
+  protected toggleVariant(
+    typeId: string,
+    attribute: Attribute,
+    change: MatSlideToggleChange,
+  ): Promise<void> {
+    const flags = applyVariantRule({
+      required: attribute.required,
+      definesVariant: change.checked,
+    });
+    const patch =
+      flags.required === attribute.required ? { definesVariant: flags.definesVariant } : flags;
+    return this.run(change, () => this.api.updateAttribute(typeId, attribute.id, patch));
+  }
+
+  /** Si la API rechaza el cambio, el interruptor vuelve a su estado y se muestra el mensaje. */
+  private async run(change: MatSlideToggleChange, action: () => Promise<unknown>): Promise<void> {
+    try {
+      await action();
+    } catch (error) {
+      change.source.checked = !change.checked;
+      this.snackBar.open(apiErrorMessage(error), 'Cerrar', { duration: 6000 });
+      this.types.reload();
+    }
+  }
+
+  private async runAction(action: () => Promise<unknown>): Promise<void> {
     try {
       await action();
     } catch (error) {

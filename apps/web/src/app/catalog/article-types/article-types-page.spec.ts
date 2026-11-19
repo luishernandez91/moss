@@ -52,6 +52,11 @@ const planta: ArticleType = {
 };
 
 async function render(desktop: boolean, response: ArticleType[] | 'error') {
+  const { element } = await setup(desktop, response);
+  return element;
+}
+
+async function setup(desktop: boolean, response: ArticleType[] | 'error') {
   const observer: Pick<BreakpointObserver, 'observe'> = {
     observe: () => of({ matches: desktop, breakpoints: {} } satisfies BreakpointState),
   };
@@ -76,7 +81,7 @@ async function render(desktop: boolean, response: ArticleType[] | 'error') {
     request.flush(response);
   }
   await fixture.whenStable();
-  return fixture.nativeElement as HTMLElement;
+  return { fixture, element: fixture.nativeElement as HTMLElement };
 }
 
 describe('ArticleTypesPage', () => {
@@ -124,5 +129,32 @@ describe('ArticleTypesPage', () => {
     expect(element.querySelector('[role="alert"]')?.textContent).toContain(
       'Ocurrió un error inesperado. Intenta de nuevo.',
     );
+  });
+
+  it('si falla el cambio en línea, el interruptor vuelve a su estado y se muestra el error', async () => {
+    const { fixture, element } = await setup(true, [maceta]);
+    const toggle = () =>
+      element.querySelector<HTMLButtonElement>(
+        'button[role="switch"][aria-label="Requerido: Material"]',
+      )!;
+    expect(toggle().getAttribute('aria-checked')).toBe('true');
+    toggle().click();
+    await fixture.whenStable();
+    const http = TestBed.inject(HttpTestingController);
+    const patch = http.expectOne(
+      `/api/article-types/${maceta.id}/attributes/${maceta.attributes[0]!.id}`,
+    );
+    expect(patch.request.body).toEqual({ required: false });
+    patch.flush(
+      { code: 'ATTRIBUTE_NOT_FOUND', message: 'No se encontró el atributo.' },
+      { status: 404, statusText: 'Not Found' },
+    );
+    // El rechazo de firstValueFrom llega en una tarea posterior al flush.
+    await new Promise((resolve) => setTimeout(resolve));
+    TestBed.tick();
+    http.expectOne('/api/article-types').flush([maceta]);
+    await fixture.whenStable();
+    expect(toggle().getAttribute('aria-checked')).toBe('true');
+    expect(document.body.textContent).toContain('No se encontró el atributo.');
   });
 });

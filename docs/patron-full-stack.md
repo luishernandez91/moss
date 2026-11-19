@@ -11,7 +11,7 @@ Cómo se construye una historia que cruza dominio, API y web. C1 (tipos de artí
 | `apps/api/src/database/schema.ts` | Tablas en inglés (ver equivalencias en `docs/especificacion.md` §9). Unicidad, llaves foráneas y CHECK que respaldan las reglas del dominio. | `articleTypes`, `attributes` |
 | `apps/api/drizzle/` | Migración nueva con `pnpm db:generate --name <slug>`; nunca editar una aplicada. | `0002_article_types.sql` |
 | `apps/api/src/<contexto>/` | Módulo Nest por contexto. Controlador delgado que valida con `@Body/@Param/@Query({ schema })`; servicio que carga datos, llama al dominio y persiste. Sin reglas propias. | `catalog/` |
-| `apps/web/src/app/<contexto>/<pantalla>/` | Un `@Service()` de datos (`httpResource` para leer, `HttpClient` para modificar y `reload()`), la página `OnPush` y sus diálogos con Signal Forms. | `catalog/article-types/` |
+| `apps/web/src/app/<contexto>/<pantalla>/` | Un `@Service()` de datos (`httpResource` para leer, `HttpClient` para modificar y `reload()`), la página `OnPush` y sus diálogos con Signal Forms. Si la interfaz necesita aplicar una regla al editar (p. ej. completar «requerido»), usa una función del dominio, nunca una copia. | `catalog/article-types/` |
 
 ## Errores
 
@@ -21,10 +21,11 @@ Cómo se construye una historia que cruza dominio, API y web. C1 (tipos de artí
 | Sin sesión | 401 | Guard global de E0.5; nada es público salvo `@Public()` |
 | No existe | 404 con código propio (`ARTICLE_TYPE_NOT_FOUND`) | `NotFoundException({ code, message })` en el servicio |
 | Regla de dominio | 422 con el `code` y `message` del dominio | `runDomainRule(ErrorClass, () => regla(...))` (`common/domain-errors.ts`) |
-| Carrera que rechaza la base (23505) | 409 con el mismo `code` que la regla | `guardUnique(() => insert/update, { code, message })` |
+| Carrera que rechaza la base (23505) | 409 con el mismo `code` que la regla | `guardWrite(() => insert/update, { unique: { code, message } })` |
+| El padre se borró entre la validación y la escritura (23503) | 404 del padre | `guardWrite(..., { foreignKey: () => new NotFoundException(...) })` |
 | Inesperado | 500 genérico; se registra en el log | `ApiExceptionFilter` |
 
-La web muestra siempre el `message` de la API con `apiErrorMessage(error)` (`core/api-error.ts`): dentro del diálogo en un `role="alert"`, o en un snackbar para acciones en línea. Las acciones destructivas piden confirmación con `ConfirmDialog`.
+La web muestra siempre el `message` de la API con `apiErrorMessage(error)` (`core/api-error.ts`): dentro del diálogo en un `role="alert"`, o en un snackbar para acciones en línea. Un control en línea que falla vuelve a su estado anterior (`change.source.checked = !change.checked`), porque recargar los datos no lo corrige si el valor no cambió. Las acciones destructivas piden confirmación con `ConfirmDialog`.
 
 ## Pruebas (primero, en este orden)
 
@@ -40,4 +41,6 @@ Después: compara las capturas con `docs/diseno/pantallas/NN-*` y registra las d
 
 - Drizzle en la API **no** usa `casing: 'snake_case'` (solo lo usa drizzle-kit): nombra explícitamente las columnas `snake_case` (`uuid('article_type_id')`). Si no, la migración sale bien pero las consultas fallan con «column "createdAt" does not exist».
 - `@Param({ schema })` valida el objeto completo de parámetros; usa `z.uuid()` para los IDs.
+- `schema.ts` importa constantes de `@moss/domain` (p. ej. los valores de un enum); por eso `pnpm db:generate` compila los paquetes antes. Si corres `drizzle-kit` dentro de `apps/api`, corre `pnpm build:packages` primero o la migración saldrá de un `dist` viejo.
 - Los cambios en `packages/*` no se ven en las apps hasta `pnpm build:packages`. Playwright arranca `apps/api/dist`: `pnpm e2e` ya compila todo, pero si corres `playwright test` dentro de `apps/web`, compila antes con `pnpm build:packages && pnpm --filter api build`.
+- El servidor de desarrollo de Angular preempaqueta `@moss/domain` y `@moss/contracts` en `apps/web/.angular/cache`. Si agregas una exportación y el navegador dice «does not provide an export named …», borra esa carpeta (`rm -rf apps/web/.angular/cache`) y vuelve a arrancar.

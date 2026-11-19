@@ -122,14 +122,14 @@
                         [checked]="attribute.required"
                         [disabled]="attribute.definesVariant"
                         [aria-label]="'Requerido: ' + attribute.name"
-                        (change)="toggleRequired(type.id, attribute, $event.checked)"
+                        (change)="toggleRequired(type.id, attribute, $event)"
                       />
                     </td>
                     <td>
                       <mat-slide-toggle
                         [checked]="attribute.definesVariant"
                         [aria-label]="'Define variante: ' + attribute.name"
-                        (change)="toggleVariant(type.id, attribute, $event.checked)"
+                        (change)="toggleVariant(type.id, attribute, $event)"
                       />
                     </td>
                   </tr>
@@ -160,14 +160,14 @@
                       [checked]="attribute.required"
                       [disabled]="attribute.definesVariant"
                       [aria-label]="'Requerido: ' + attribute.name"
-                      (change)="toggleRequired(type.id, attribute, $event.checked)"
+                      (change)="toggleRequired(type.id, attribute, $event)"
                     >
                       Requerido
                     </mat-slide-toggle>
                     <mat-slide-toggle
                       [checked]="attribute.definesVariant"
                       [aria-label]="'Define variante: ' + attribute.name"
-                      (change)="toggleVariant(type.id, attribute, $event.checked)"
+                      (change)="toggleVariant(type.id, attribute, $event)"
                     >
                       Define variante
                     </mat-slide-toggle>

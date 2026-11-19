@@ -7,7 +7,7 @@ import {
   validateArticleTypeName,
 } from '@moss/domain';
 import type { ArticleType, Attribute, CreateAttribute, UpdateAttribute } from '@moss/contracts';
-import { guardUnique, runDomainRule } from '../common/domain-errors.js';
+import { guardWrite, runDomainRule } from '../common/domain-errors.js';
 import { DATABASE, type Database } from '../database/database.module.js';
 import { articleTypes, attributes } from '../database/schema.js';
 
@@ -67,13 +67,13 @@ export class ArticleTypesService {
     const validName = runDomainRule(ArticleTypeError, () =>
       validateArticleTypeName(name, existing),
     );
-    const [created] = await guardUnique(
+    const [created] = await guardWrite(
       () =>
         this.db
           .insert(articleTypes)
           .values({ name: validName })
           .returning({ id: articleTypes.id, name: articleTypes.name }),
-      duplicateType,
+      { unique: duplicateType },
     );
     return { ...created!, attributes: [] };
   }
@@ -86,14 +86,14 @@ export class ArticleTypesService {
     const validName = runDomainRule(ArticleTypeError, () =>
       validateArticleTypeName(name, existing, id),
     );
-    const [updated] = await guardUnique(
+    const [updated] = await guardWrite(
       () =>
         this.db
           .update(articleTypes)
           .set({ name: validName })
           .where(eq(articleTypes.id, id))
           .returning({ id: articleTypes.id, name: articleTypes.name }),
-      duplicateType,
+      { unique: duplicateType },
     );
     if (!updated) throw typeNotFound();
     return updated;
@@ -114,13 +114,13 @@ export class ArticleTypesService {
     const definition = runDomainRule(ArticleTypeError, () =>
       createAttributeDefinition(input, siblings),
     );
-    const [created] = await guardUnique(
+    const [created] = await guardWrite(
       () =>
         this.db
           .insert(attributes)
           .values({ ...definition, articleTypeId: typeId })
           .returning(attributeFields),
-      duplicateAttribute,
+      { unique: duplicateAttribute, foreignKey: typeNotFound },
     );
     return created!;
   }
@@ -136,14 +136,14 @@ export class ArticleTypesService {
     const definition = runDomainRule(ArticleTypeError, () =>
       updateAttributeDefinition(current, changes, siblings),
     );
-    const [updated] = await guardUnique(
+    const [updated] = await guardWrite(
       () =>
         this.db
           .update(attributes)
           .set({ ...definition, ...(active !== undefined && { active }) })
           .where(and(eq(attributes.id, id), eq(attributes.articleTypeId, typeId)))
           .returning(attributeFields),
-      duplicateAttribute,
+      { unique: duplicateAttribute },
     );
     if (!updated) throw attributeNotFound();
     return updated;

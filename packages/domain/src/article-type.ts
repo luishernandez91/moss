@@ -200,6 +200,17 @@ function normalizeOptions(
   return cleaned;
 }
 
+/**
+ * Completa las marcas para cumplir «define variante ⇒ requerido»: marcar variante marca requerido.
+ * La interfaz lo usa al editar; `assertVariantRule` rechaza la combinación inválida.
+ */
+export function applyVariantRule(flags: { required: boolean; definesVariant: boolean }): {
+  required: boolean;
+  definesVariant: boolean;
+} {
+  return { required: flags.required || flags.definesVariant, definesVariant: flags.definesVariant };
+}
+
 function assertVariantRule(required: boolean, definesVariant: boolean): void {
   if (definesVariant && !required) {
     throw new ArticleTypeError(

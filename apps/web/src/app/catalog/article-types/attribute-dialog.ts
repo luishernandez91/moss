@@ -16,7 +16,12 @@ import {
   type AttributeDataType,
   type CreateAttribute,
 } from '@moss/contracts';
-import { ATTRIBUTE_DATA_TYPES, ATTRIBUTE_NAME_MAX, ATTRIBUTE_UNIT_MAX } from '@moss/domain';
+import {
+  applyVariantRule,
+  ATTRIBUTE_DATA_TYPES,
+  ATTRIBUTE_NAME_MAX,
+  ATTRIBUTE_UNIT_MAX,
+} from '@moss/domain';
 import { firstValueFrom } from 'rxjs';
 import { apiErrorMessage } from '../../core/api-error';
 import { ConfirmDialog, type ConfirmDialogData } from '../../core/confirm-dialog';
@@ -180,8 +185,9 @@ export class AttributeDialog {
   );
 
   protected setVariant(checked: boolean): void {
-    this.definesVariant.set(checked);
-    if (checked) this.isRequired.set(true);
+    const flags = applyVariantRule({ required: this.isRequired(), definesVariant: checked });
+    this.definesVariant.set(flags.definesVariant);
+    this.isRequired.set(flags.required);
   }
 
   protected async save(event: Event): Promise<void> {

@@ -1,4 +1,4 @@
-import { ConflictException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, HttpException, UnprocessableEntityException } from '@nestjs/common';
 import type { ApiError } from '@moss/contracts';
 
 /** Forma común de los errores de dominio: `code` estable y `message` en español. */
@@ -20,23 +20,33 @@ export function runDomainRule<T>(errorClass: DomainErrorClass, rule: () => T): T
   }
 }
 
-/** Violación de unicidad de PostgreSQL (23505), directa o envuelta por Drizzle en `cause`. */
-export function isUniqueViolation(error: unknown): boolean {
+/** Código de error de PostgreSQL (SQLSTATE), directo o envuelto por Drizzle en `cause`. */
+export function postgresErrorCode(error: unknown): string | undefined {
   for (let current: unknown = error; current instanceof Error; current = current.cause) {
-    if ((current as Error & { code?: unknown }).code === '23505') return true;
+    const code = (current as Error & { code?: unknown }).code;
+    if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) return code;
   }
-  return false;
+  return undefined;
+}
+
+export interface WriteGuards {
+  /** 23505: otra solicitud ganó la carrera de unicidad. Responde 409 con este cuerpo. */
+  unique?: ApiError;
+  /** 23503: el registro padre se borró entre la validación y la escritura. */
+  foreignKey?: () => HttpException;
 }
 
 /**
- * Inserta o actualiza y convierte una carrera de unicidad en 409, con el mismo código que la
- * regla de dominio. El dominio valida antes con un mensaje que nombra el registro existente.
+ * Ejecuta una escritura y traduce las violaciones de restricciones que el dominio validó antes
+ * pero que una solicitud concurrente puede provocar. Cualquier otro error se propaga.
  */
-export async function guardUnique<T>(action: () => Promise<T>, conflict: ApiError): Promise<T> {
+export async function guardWrite<T>(action: () => Promise<T>, guards: WriteGuards): Promise<T> {
   try {
     return await action();
   } catch (error) {
-    if (isUniqueViolation(error)) throw new ConflictException(conflict);
+    const code = postgresErrorCode(error);
+    if (code === '23505' && guards.unique) throw new ConflictException(guards.unique);
+    if (code === '23503' && guards.foreignKey) throw guards.foreignKey();
     throw error;
   }
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ArticleTypeError,
+  applyVariantRule,
   attributeKey,
   createAttributeDefinition,
   updateAttributeDefinition,
@@ -245,6 +246,23 @@ describe('createAttributeDefinition', () => {
       'VARIANT_REQUIRES_REQUIRED',
       'Un atributo que define variante debe ser requerido.',
     );
+  });
+});
+
+describe('applyVariantRule', () => {
+  it('al marcar «define variante» también marca «requerido»; si no, no cambia nada', () => {
+    expect(applyVariantRule({ required: false, definesVariant: true })).toEqual({
+      required: true,
+      definesVariant: true,
+    });
+    expect(applyVariantRule({ required: false, definesVariant: false })).toEqual({
+      required: false,
+      definesVariant: false,
+    });
+    expect(applyVariantRule({ required: true, definesVariant: false })).toEqual({
+      required: true,
+      definesVariant: false,
+    });
   });
 });
 

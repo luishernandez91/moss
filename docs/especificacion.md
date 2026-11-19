@@ -363,7 +363,7 @@ En `campana_items`, `producto_id` y `variante_id` son excluyentes: exactamente u
 | `pedido_pagos.tipo`: `anticipo`, `liquidacion` | `kind`: `deposit`, `final_payment` |
 | `{tamano}` en un filtro de receta | `{size}` |
 
-Las claves de atributo (`atributos.clave`) y los valores que capturan los usuarios (opciones de lista, unidades) son datos, no literales del código, y se guardan como se escriben.
+Los valores que capturan los usuarios (nombres, opciones de lista, unidades) son datos, no literales del código, y se guardan como se escriben. La clave de atributo (`atributos.clave`) se deriva del nombre al crearlo (sin acentos, minúsculas, `_`) y es la llave de los valores en JSONB.
 
 ## 10. Casos de prueba con números reales
 
