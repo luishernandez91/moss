@@ -107,14 +107,15 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
   - Depende: D1
   - Spec: §8 regla 7
   - Criterios:
-    - Entrada: ventas, gastos con quién pagó (socio o caja), trabajo registrado por socio, % reinversión de la campaña (0% por defecto), participación (50/50 por defecto), inventario sobrante.
-    - Inversión de cada socio = suma de los gastos que pagó en la campaña. Lo pagado por la caja no es inversión de nadie.
-    - Orden: recuperar inversión → pagar trabajo → apartar reinversión → dividir la ganancia 50/50.
-    - Salida por socio: inversión, recupera, trabajo, ganancia, total a recibir; más reinversión a caja.
+    - Entrada: ventas, gastos con pagador (socio o caja), aportaciones opcionales ([] por defecto), trabajo devengado por socio, reinversión en puntos base (0 por defecto), participación en puntos base (5000 por socio por defecto; suma exacta 10000), inventario sobrante.
+    - Capital de cada socio = gastos que pagó + aportaciones a caja. Caja neta = gastos pagados por caja − aportaciones; puede ser negativa. Las aportaciones no son gastos.
+    - Orden: recuperar caja neta → recuperar capital → pagar trabajo con el remanente (a prorrata si no alcanza) → apartar reinversión → repartir ganancia por participación. Si falta capital, trabajo pagado $0 y solo esa pérdida se reparte.
+    - Salida por socio: inversión, recupera, trabajo devengado, pagado e impago informativo, participación en resultado y total; más recuperación neta y reinversión de caja. El trabajo impago no genera deuda ni se arrastra a otras campañas. `result` conserva ventas − gastos − trabajo devengado como indicador informativo.
     - Pruebas con la sección 10 de la especificación: reinversión 0% → Luis $2,170, el otro socio $1,430; reinversión 30% → $1,939 / $1,199 / caja $462; pérdida de $460 → Luis $1,170, el otro socio debe aportar $170. En todos, la suma cuadra con las ventas.
-    - Con pérdida no hay reinversión.
-    - La caja recupera íntegros sus gastos incluso con pérdida, sin participación en el resultado; se devuelven recuperación y reinversión separadas. Totales de socios + total de caja = ventas.
-    - El residuo de centavos al dividir 50/50 se asigna de forma determinista y documentada (ej. al socio con mayor inversión).
+    - Con pérdida o trabajo parcialmente pagado no hay reinversión. Casos: ventas $1,200/capital otro $1,000/trabajo Luis $400 → $200/$1,000; ventas $600/capital Luis $300 y otro $700/trabajo Luis $400 → $100/$500; Nochebuena real → $1,365/$15 y trabajo impago $600.
+    - La caja recupera íntegra su financiación neta incluso con pérdida, sin participación en el resultado. Totales de socios + total de caja = ventas, incluyendo caja neta negativa.
+    - Residuo de centavos de trabajo y ganancia/pérdida: `allocate` con pesos enteros exactos, por ID ascendente UTF-16; pesos cero no reciben residuo. Reinversión con `percentageBps` exacto y half-up.
+    - Vigencia: cierres desde esta decisión; no recalcular los ya liquidados. K7 debe persistir el snapshot del cierre. Registro de aportaciones (persistencia y UI): corresponde a K7 o a una historia nueva, a definir.
 
 - [ ] **D8 · Clonación de campaña**
   - Depende: D4
@@ -222,7 +223,9 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
   - Spec: pantalla 17
   - Criterios:
     - Captura de inventario sobrante; producto de temporada en $0.
-    - Cascada y tabla por socio de D7; un total negativo se muestra como "debe aportar".
+    - Cascada y tabla por socio de D7; un total negativo se muestra como "Debe aportar". Trabajo devengado, pagado e impago separados; el impago no genera deuda ni se arrastra.
+    - Guardar una copia fija (snapshot) de todo el resultado del cierre y mostrarla sin recalcular. La nueva regla de D7 aplica desde su decisión; preservar cierres ya liquidados.
+    - Pendiente de definir: registro de aportaciones de socios (persistencia y UI) en K7 o en una historia nueva.
     - Confirmación explícita antes de cerrar.
     - Reabrir con motivo desde la campaña cerrada.
 

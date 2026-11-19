@@ -41,7 +41,7 @@ function empty(overrides: Partial<ProfitSplitInput> = {}): ProfitSplitInput {
   });
 }
 
-/** Cada cálculo válido debe conservar exactamente las ventas, incluyendo aportaciones negativas. */
+/** Cada cálculo válido debe conservar exactamente las ventas, incluyendo totales negativos. */
 function calculate(input: ProfitSplitInput) {
   const output = calculateProfitSplit(input);
   expect(add(...output.partners.map((partner) => partner.total), output.cashBoxTotal)).toBe(
@@ -52,9 +52,13 @@ function calculate(input: ProfitSplitInput) {
   for (const partner of output.partners) {
     expect(partner.recoveredInvestment).toBe(partner.investment);
     expect(partner.total).toBe(
-      add(partner.recoveredInvestment, partner.labor, partner.resultShare),
+      add(partner.recoveredInvestment, partner.laborPaid, partner.resultShare),
     );
     expect(partner.owes).toBe(partner.total < 0);
+    expect(add(partner.laborPaid, partner.laborUnpaid)).toBe(partner.labor);
+    expect(partner.laborPaid).toBeGreaterThanOrEqual(0);
+    expect(partner.laborPaid).toBeLessThanOrEqual(partner.labor);
+    expect(partner.laborUnpaid).toBeGreaterThanOrEqual(0);
   }
   return output;
 }
@@ -68,6 +72,8 @@ describe('calculateProfitSplit', () => {
           investment: money('1400'),
           recoveredInvestment: money('1400'),
           labor: ZERO,
+          laborPaid: ZERO,
+          laborUnpaid: ZERO,
           resultShare: money('770'),
           total: money('2170'),
           owes: false,
@@ -77,6 +83,8 @@ describe('calculateProfitSplit', () => {
           investment: money('60'),
           recoveredInvestment: money('60'),
           labor: money('600'),
+          laborPaid: money('600'),
+          laborUnpaid: ZERO,
           resultShare: money('770'),
           total: money('1430'),
           owes: false,
@@ -92,7 +100,7 @@ describe('calculateProfitSplit', () => {
   });
 
   it('§10: aparta 30% de la ganancia antes de repartir', () => {
-    const output = calculate(base({ reinvestmentPercent: 30 }));
+    const output = calculate(base({ reinvestmentBps: 3000 }));
     expect(output.result).toBe(money('1540'));
     expect(output.reinvestment).toBe(money('462'));
     expect(output.cashBoxTotal).toBe(money('462'));
@@ -103,11 +111,11 @@ describe('calculateProfitSplit', () => {
     expect(output.partners.map((partner) => partner.total)).toEqual([money('1939'), money('1199')]);
   });
 
-  it.each([0, 30])(
-    '§10: reparte la pérdida y conserva el total negativo, reinversión configurada %i%%',
-    (reinvestmentPercent) => {
+  it.each([0, 3000])(
+    '§10: reparte la pérdida y conserva el total negativo, reinversión configurada %i bps',
+    (reinvestmentBps) => {
       const output = calculate(
-        empty({ totalSales: money('1000'), expenses: base().expenses, reinvestmentPercent }),
+        empty({ totalSales: money('1000'), expenses: base().expenses, reinvestmentBps }),
       );
       expect(output.result).toBe(money('-460'));
       expect(output.reinvestment).toBe(ZERO);
@@ -122,7 +130,7 @@ describe('calculateProfitSplit', () => {
     },
   );
 
-  it('Nochebuena: suma plantas y gasolina de Luis y paga el trabajo aun con pérdida', () => {
+  it('Nochebuena: reparte solo la pérdida de capital y deja el trabajo impago', () => {
     const output = calculate(
       base({
         totalSales: money('1380'),
@@ -135,13 +143,15 @@ describe('calculateProfitSplit', () => {
       money('50'),
     ]);
     expect(output.partners.map((partner) => partner.resultShare)).toEqual([
-      money('-335'),
-      money('-335'),
+      money('-35'),
+      money('-35'),
     ]);
     expect(output.partners.map((partner) => [partner.total, partner.owes])).toEqual([
-      [money('1065'), false],
-      [money('315'), false],
+      [money('1365'), false],
+      [money('15'), false],
     ]);
+    expect(output.partners.map((partner) => partner.laborPaid)).toEqual([ZERO, ZERO]);
+    expect(output.partners.map((partner) => partner.laborUnpaid)).toEqual([ZERO, money('600')]);
   });
 
   it.each([
@@ -169,7 +179,7 @@ describe('calculateProfitSplit', () => {
 
   it('caso mixto: separa recuperación de caja $100 y reinversión $432', () => {
     const output = calculate(
-      base({ expenses: [...base().expenses, expense('100')], reinvestmentPercent: 30 }),
+      base({ expenses: [...base().expenses, expense('100')], reinvestmentBps: 3000 }),
     );
     expect(output.result).toBe(money('1440'));
     expect(output.cashBoxRecovery).toBe(money('100'));
@@ -183,10 +193,8 @@ describe('calculateProfitSplit', () => {
   });
 
   it.each(['0', '200'])('inventario de $%s es informativo y no cambia los pagos', (inventory) => {
-    const original = calculate(base({ reinvestmentPercent: 30 }));
-    const output = calculate(
-      base({ reinvestmentPercent: 30, leftoverInventory: money(inventory) }),
-    );
+    const original = calculate(base({ reinvestmentBps: 3000 }));
+    const output = calculate(base({ reinvestmentBps: 3000, leftoverInventory: money(inventory) }));
     expect(output).toEqual({
       ...original,
       leftoverInventory: money(inventory),
@@ -196,7 +204,7 @@ describe('calculateProfitSplit', () => {
 
   it('inventario no convierte una pérdida en efectivo ni habilita reinversión', () => {
     const output = calculate(
-      empty({ expenses: [expense('1')], leftoverInventory: money('200'), reinvestmentPercent: 30 }),
+      empty({ expenses: [expense('1')], leftoverInventory: money('200'), reinvestmentBps: 3000 }),
     );
     expect(output.result).toBe(money('-1'));
     expect(output.resultIncludingInventory).toBe(money('199'));
@@ -222,10 +230,10 @@ describe('calculateProfitSplit', () => {
   );
 
   it.each([
-    { shares: [70, 30], expected: [71, 30] },
-    { shares: [33.3, 66.7], expected: [34, 67] },
-    { shares: [0, 100], expected: [0, 101] },
-    { shares: [100, 0], expected: [101, 0] },
+    { shares: [7000, 3000], expected: [71, 30] },
+    { shares: [3333, 6667], expected: [34, 67] },
+    { shares: [0, 10000], expected: [0, 101] },
+    { shares: [10000, 0], expected: [101, 0] },
   ])(
     'respeta participaciones $shares y omite pesos cero al asignar residuo',
     ({ shares, expected }) => {
@@ -233,8 +241,8 @@ describe('calculateProfitSplit', () => {
         empty({
           totalSales: cents(101),
           partners: [
-            { id: 'luis', labor: ZERO, sharePercent: shares[0]! },
-            { id: 'socio', labor: ZERO, sharePercent: shares[1]! },
+            { id: 'luis', labor: ZERO, shareBps: shares[0]! },
+            { id: 'socio', labor: ZERO, shareBps: shares[1]! },
           ],
         }),
       );
@@ -246,8 +254,8 @@ describe('calculateProfitSplit', () => {
     const input = empty({
       totalSales: cents(101),
       partners: [
-        { id: 'a', labor: ZERO, sharePercent: 70 },
-        { id: 'Z', labor: ZERO, sharePercent: 30 },
+        { id: 'a', labor: ZERO, shareBps: 7000 },
+        { id: 'Z', labor: ZERO, shareBps: 3000 },
       ],
     });
     const output = calculate(input);
@@ -264,10 +272,10 @@ describe('calculateProfitSplit', () => {
     const output = calculate(
       empty({
         expenses: [expense('10')],
-        reinvestmentPercent: 100,
+        reinvestmentBps: 10000,
         partners: [
-          { id: 'luis', labor: ZERO, sharePercent: 70 },
-          { id: 'socio', labor: ZERO, sharePercent: 30 },
+          { id: 'luis', labor: ZERO, shareBps: 7000 },
+          { id: 'socio', labor: ZERO, shareBps: 3000 },
         ],
       }),
     );
@@ -276,14 +284,14 @@ describe('calculateProfitSplit', () => {
   });
 
   it('con reinversión 100% los socios solo recuperan inversión y trabajo', () => {
-    const output = calculate(base({ reinvestmentPercent: 100 }));
+    const output = calculate(base({ reinvestmentBps: 10000 }));
     expect(output.reinvestment).toBe(money('1540'));
     expect(output.partners.map((partner) => partner.resultShare)).toEqual([ZERO, ZERO]);
     expect(output.partners.map((partner) => partner.total)).toEqual([money('1400'), money('660')]);
   });
 
   it('redondea half-up la reinversión antes de asignar el residuo', () => {
-    const output = calculate(empty({ totalSales: cents(5), reinvestmentPercent: 10 }));
+    const output = calculate(empty({ totalSales: cents(5), reinvestmentBps: 1000 }));
     expect(output.reinvestment).toBe(cents(1));
     expect(output.partners.map((partner) => partner.total)).toEqual([cents(2), cents(2)]);
   });
@@ -303,7 +311,7 @@ describe('calculateProfitSplit', () => {
       base({
         totalSales: money('2160'),
         expenses: [...base().expenses, expense('100')],
-        reinvestmentPercent: 30,
+        reinvestmentBps: 3000,
       }),
     );
     expect(output.result).toBe(ZERO);
@@ -328,6 +336,258 @@ describe('calculateProfitSplit', () => {
   });
 });
 
+describe('cascada y aportaciones', () => {
+  it('paga $200 de trabajo de Luis tras recuperar los $1,000 del otro socio', () => {
+    const output = calculate(
+      empty({
+        totalSales: money('1200'),
+        expenses: [expense('1000', 'socio')],
+        partners: [
+          { id: 'luis', labor: money('400') },
+          { id: 'socio', labor: ZERO },
+        ],
+        reinvestmentBps: 3000,
+      }),
+    );
+    expect(output.result).toBe(money('-200'));
+    expect(output.partners.map((p) => p.total)).toEqual([money('200'), money('1000')]);
+    expect(output.partners.map((p) => p.laborPaid)).toEqual([money('200'), ZERO]);
+    expect(output.partners.map((p) => p.laborUnpaid)).toEqual([money('200'), ZERO]);
+    expect(output.partners.map((p) => p.resultShare)).toEqual([ZERO, ZERO]);
+    expect(output.partners.map((p) => p.owes)).toEqual([false, false]);
+    expect(output.reinvestment).toBe(ZERO);
+  });
+
+  it('ventas $600 contra capital $1,000: pierde $200 cada socio y no paga trabajo', () => {
+    const output = calculate(
+      empty({
+        totalSales: money('600'),
+        expenses: [expense('700', 'socio'), expense('300', 'luis')],
+        partners: [
+          { id: 'luis', labor: money('400') },
+          { id: 'socio', labor: ZERO },
+        ],
+        reinvestmentBps: 3000,
+      }),
+    );
+    expect(output.result).toBe(money('-800'));
+    expect(output.partners.map((p) => p.total)).toEqual([money('100'), money('500')]);
+    expect(output.partners.map((p) => p.resultShare)).toEqual([money('-200'), money('-200')]);
+    expect(output.partners.map((p) => p.laborPaid)).toEqual([ZERO, ZERO]);
+    expect(output.partners.map((p) => p.laborUnpaid)).toEqual([money('400'), ZERO]);
+    expect(output.reinvestment).toBe(ZERO);
+  });
+
+  it('prorratea trabajo por importes devengados, independientemente de la participación', () => {
+    const output = calculate(
+      empty({
+        totalSales: money('1300'),
+        expenses: [expense('1000', 'socio')],
+        partners: [
+          { id: 'luis', labor: money('400'), shareBps: 0 },
+          { id: 'socio', labor: money('200'), shareBps: 10000 },
+        ],
+        reinvestmentBps: 10000,
+      }),
+    );
+    expect(output.partners.map((p) => p.laborPaid)).toEqual([money('200'), money('100')]);
+    expect(output.partners.map((p) => p.laborUnpaid)).toEqual([money('200'), money('100')]);
+    expect(output.partners.map((p) => p.total)).toEqual([money('200'), money('1100')]);
+    expect(output.partners.map((p) => p.resultShare)).toEqual([ZERO, ZERO]);
+    expect(output.reinvestment).toBe(ZERO);
+  });
+
+  it('el centavo residual de trabajo sigue ID UTF-16 y no rebasa el trabajo devengado', () => {
+    const input = empty({
+      totalSales: cents(1),
+      partners: [
+        { id: 'a', labor: cents(1) },
+        { id: 'Z', labor: cents(1) },
+      ],
+    });
+    const output = calculate(input);
+    expect(output.partners.map((p) => [p.partnerId, p.laborPaid, p.laborUnpaid])).toEqual([
+      ['Z', 1, 0],
+      ['a', 0, 1],
+    ]);
+    expect(calculate({ ...input, partners: [input.partners[1], input.partners[0]] })).toEqual(
+      output,
+    );
+  });
+
+  it.each([
+    { sales: '1000', paid: '0', unpaid: '400' },
+    { sales: '1400', paid: '400', unpaid: '0' },
+  ])('frontera exacta con ventas $sales: trabajo pagado $paid', ({ sales, paid, unpaid }) => {
+    const output = calculate(
+      empty({
+        totalSales: money(sales),
+        expenses: [expense('1000', 'socio')],
+        partners: [
+          { id: 'luis', labor: money('400') },
+          { id: 'socio', labor: ZERO },
+        ],
+        reinvestmentBps: 3000,
+      }),
+    );
+    expect(output.partners[0]!.laborPaid).toBe(money(paid));
+    expect(output.partners[0]!.laborUnpaid).toBe(money(unpaid));
+    expect(output.partners.map((p) => p.resultShare)).toEqual([ZERO, ZERO]);
+    expect(output.reinvestment).toBe(ZERO);
+  });
+
+  it('las aportaciones omitidas equivalen a []', () => {
+    expect(calculate(base())).toEqual(calculate(base({ contributions: [] })));
+  });
+
+  it('acumula aportaciones de ambos socios sin duplicar gastos ni cambiar el resultado', () => {
+    const expenses = [expense('100', 'luis'), expense('50', 'socio'), expense('200')];
+    const original = calculate(empty({ totalSales: money('500'), expenses }));
+    const output = calculate(
+      empty({
+        totalSales: money('500'),
+        expenses,
+        contributions: [
+          { partnerId: 'luis', amount: money('60') },
+          { partnerId: 'luis', amount: money('40') },
+          { partnerId: 'socio', amount: money('50') },
+        ],
+      }),
+    );
+    expect(output.result).toBe(original.result);
+    expect(output.result).toBe(money('150'));
+    expect(output.partners.map((p) => p.investment)).toEqual([money('200'), money('100')]);
+    expect(output.partners.map((p) => p.total)).toEqual([money('275'), money('175')]);
+    expect(output.cashBoxRecovery).toBe(money('50'));
+  });
+
+  it('una aportación que financia todos los gastos de caja deja recuperación neta cero', () => {
+    const output = calculate(
+      empty({
+        totalSales: money('100'),
+        expenses: [expense('100')],
+        contributions: [{ partnerId: 'luis', amount: money('100') }],
+      }),
+    );
+    expect(output.cashBoxRecovery).toBe(ZERO);
+    expect(output.partners.map((p) => p.total)).toEqual([money('100'), ZERO]);
+    expect(output.result).toBe(ZERO);
+  });
+
+  it.each([
+    { sales: '100', bps: 0, totals: ['90', '40'], recovery: '-30', reinvestment: '0', cash: '-30' },
+    {
+      sales: '100',
+      bps: 3000,
+      totals: ['78', '28'],
+      recovery: '-30',
+      reinvestment: '24',
+      cash: '-6',
+    },
+    {
+      sales: '10',
+      bps: 3000,
+      totals: ['45', '-5'],
+      recovery: '-30',
+      reinvestment: '0',
+      cash: '-30',
+    },
+  ])(
+    'caja neta negativa devuelve aportación no gastada: ventas $sales, reinversión $bps bps',
+    ({ sales, bps, totals, recovery, reinvestment, cash }) => {
+      const output = calculate(
+        empty({
+          totalSales: money(sales),
+          expenses: [expense('20')],
+          contributions: [{ partnerId: 'luis', amount: money('50') }],
+          reinvestmentBps: bps,
+        }),
+      );
+      expect(output.cashBoxRecovery).toBe(money(recovery));
+      expect(output.reinvestment).toBe(money(reinvestment));
+      expect(output.cashBoxTotal).toBe(money(cash));
+      expect(output.partners.map((p) => p.total)).toEqual(totals.map(money));
+    },
+  );
+
+  it('sin gastos ni ventas devuelve las aportaciones desde caja, sin pérdida', () => {
+    const output = calculate(
+      empty({ contributions: [{ partnerId: 'socio', amount: money('50') }] }),
+    );
+    expect(output.cashBoxTotal).toBe(money('-50'));
+    expect(output.partners.map((p) => p.total)).toEqual([ZERO, money('50')]);
+    expect(output.result).toBe(ZERO);
+  });
+
+  it('recupera caja neta antes del trabajo aun si ambos socios deben aportar', () => {
+    const output = calculate(
+      empty({
+        totalSales: money('10'),
+        expenses: [expense('20')],
+        partners: [
+          { id: 'luis', labor: money('400') },
+          { id: 'socio', labor: money('200') },
+        ],
+      }),
+    );
+    expect(output.cashBoxRecovery).toBe(money('20'));
+    expect(output.partners.map((p) => [p.total, p.laborPaid, p.owes])).toEqual([
+      [money('-5'), ZERO, true],
+      [money('-5'), ZERO, true],
+    ]);
+  });
+
+  it('el trabajo impago es informativo: no genera deuda ni se arrastra a otra campaña', () => {
+    const output = calculate(
+      empty({
+        partners: [
+          { id: 'luis', labor: money('400') },
+          { id: 'socio', labor: ZERO },
+        ],
+      }),
+    );
+    expect(output.partners[0]!.laborUnpaid).toBe(money('400'));
+    expect(output.partners.map((p) => [p.total, p.resultShare, p.owes])).toEqual([
+      [ZERO, ZERO, false],
+      [ZERO, ZERO, false],
+    ]);
+    expect(calculate(empty()).partners.map((p) => p.laborUnpaid)).toEqual([ZERO, ZERO]);
+  });
+
+  it('no modifica ni reordena las aportaciones de entrada', () => {
+    const contributions = Object.freeze([
+      Object.freeze({ partnerId: 'socio', amount: money('10') }),
+      Object.freeze({ partnerId: 'luis', amount: money('20') }),
+    ]);
+    const input = base({ contributions });
+    const before = structuredClone(input);
+    expect(calculate(input)).toEqual(calculate(input));
+    expect(input).toEqual(before);
+  });
+
+  it('un monto grande conserva cada centavo al reinvertir 10000 bps', () => {
+    const output = calculate(empty({ totalSales: cents(100000000000001), reinvestmentBps: 10000 }));
+    expect(output.reinvestment).toBe(cents(100000000000001));
+    expect(output.partners.map((p) => p.total)).toEqual([ZERO, ZERO]);
+  });
+
+  it('reparte montos grandes con pesos enteros exactos', () => {
+    const output = calculate(
+      empty({
+        totalSales: cents(Number.MAX_SAFE_INTEGER),
+        partners: [
+          { id: 'luis', labor: ZERO, shareBps: 3333 },
+          { id: 'socio', labor: ZERO, shareBps: 6667 },
+        ],
+      }),
+    );
+    expect(output.partners.map((p) => p.total)).toEqual([
+      cents(3002099511605173),
+      cents(6005099743135818),
+    ]);
+  });
+});
+
 describe('validación del cierre', () => {
   function expectError(input: ProfitSplitInput, code: string, message: RegExp) {
     expect(() => calculateProfitSplit(input)).toThrow(ProfitSplitError);
@@ -337,47 +597,50 @@ describe('validación del cierre', () => {
   }
 
   it.each([
-    [-1, 101],
-    [NaN, 50],
-    [Infinity, 50],
-    [101, -1],
+    [-1, 10001],
+    [NaN, 5000],
+    [Infinity, 5000],
+    [10001, -1],
   ])('rechaza participaciones inválidas %s/%s', (first, second) => {
     expectError(
       empty({
         partners: [
-          { id: 'luis', labor: ZERO, sharePercent: first },
-          { id: 'socio', labor: ZERO, sharePercent: second },
+          { id: 'luis', labor: ZERO, shareBps: first },
+          { id: 'socio', labor: ZERO, shareBps: second },
         ],
       }),
       'INVALID_SHARES',
-      /participaciones.*entre 0.*100/i,
+      /participaciones.*enteros.*entre 0.*10000/i,
     );
   });
 
   it.each([
-    [40, 50],
+    [4000, 5000],
     [0, 0],
-    [70, undefined],
-  ])('rechaza participaciones que no suman 100: %s/%s', (first, second) => {
+    [7000, undefined],
+  ])('rechaza participaciones que no suman 10000: %s/%s', (first, second) => {
     expectError(
       empty({
         partners: [
-          { id: 'luis', labor: ZERO, sharePercent: first },
-          { id: 'socio', labor: ZERO, ...(second === undefined ? {} : { sharePercent: second }) },
+          { id: 'luis', labor: ZERO, shareBps: first },
+          { id: 'socio', labor: ZERO, ...(second === undefined ? {} : { shareBps: second }) },
         ],
       }),
       'INVALID_SHARES',
-      /participaciones.*sumar 100/i,
+      /participaciones.*sumar 10000/i,
     );
   });
 
-  it.each([-1, 101, NaN, Infinity])('rechaza reinversión inválida %s', (reinvestmentPercent) => {
-    expectError(
-      base({ reinvestmentPercent }),
-      'INVALID_REINVESTMENT',
-      /reinversión.*entre 0.*100/i,
-    );
-  });
+  it.each([-1, 10001, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])(
+    'rechaza reinversión inválida %s',
+    (reinvestmentBps) => {
+      expectError(
+        base({ reinvestmentBps }),
+        'INVALID_REINVESTMENT',
+        /reinversión.*enteros.*entre 0.*10000/i,
+      );
+    },
+  );
 
   it.each(['', ' ', 'luis'])('rechaza ID vacío o repetido: "%s"', (id) => {
     expectError(
@@ -400,6 +663,30 @@ describe('validación del cierre', () => {
     );
   });
 
+  it('rechaza aportaciones de un socio desconocido', () => {
+    expectError(
+      base({ contributions: [{ partnerId: 'desconocido', amount: ZERO }] }),
+      'UNKNOWN_PARTNER',
+      /desconocido/i,
+    );
+  });
+
+  it.each([0.5, 3333.3, Number.MAX_SAFE_INTEGER + 1])(
+    'rechaza participación no entera segura %s',
+    (shareBps) => {
+      expectError(
+        empty({
+          partners: [
+            { id: 'luis', labor: ZERO, shareBps },
+            { id: 'socio', labor: ZERO },
+          ],
+        }),
+        'INVALID_SHARES',
+        /enteros.*entre 0.*10000/i,
+      );
+    },
+  );
+
   it('rechaza gastos de un socio desconocido', () => {
     expectError(
       base({ expenses: [expense('1', 'desconocido')] }),
@@ -409,6 +696,10 @@ describe('validación del cierre', () => {
   });
 
   const amountFields = [
+    {
+      name: 'aportación',
+      input: (amount: Cents) => base({ contributions: [{ partnerId: 'luis', amount }] }),
+    },
     { name: 'ventas', input: (amount: Cents) => base({ totalSales: amount }) },
     {
       name: 'gasto de socio',

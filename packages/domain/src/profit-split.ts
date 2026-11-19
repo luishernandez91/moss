@@ -1,12 +1,12 @@
 /** Cierre y reparto puro: especificación §5 pantalla 17, §7 pantalla 22 y §8 reglas 1, 7 y 9. */
-import { add, allocate, percentage, subtract, ZERO, type Cents } from './money.js';
+import { add, allocate, percentageBps, subtract, ZERO, type Cents } from './money.js';
 
 export interface ClosingPartner {
   id: string;
-  /** Trabajo registrado pendiente de pago; no incluirlo también como gasto. */
+  /** Trabajo devengado en esta campaña; no incluirlo también como gasto. */
   labor: Cents;
-  /** Participación en ganancia o pérdida, 50% por defecto. */
-  sharePercent?: number;
+  /** Participación en puntos base enteros, 5000 (50%) por defecto. */
+  shareBps?: number;
 }
 
 export interface ClosingExpense {
@@ -14,22 +14,33 @@ export interface ClosingExpense {
   paidBy: { kind: 'partner'; partnerId: string } | { kind: 'cash_box' };
 }
 
+export interface PartnerContribution {
+  partnerId: string;
+  amount: Cents;
+}
+
 export interface ProfitSplitInput {
   totalSales: Cents;
   expenses: readonly ClosingExpense[];
+  /** Aportaciones a caja: capital del socio, no gasto. Por defecto []. */
+  contributions?: readonly PartnerContribution[];
   partners: readonly [ClosingPartner, ClosingPartner];
-  /** Entre 0 y 100, incluidos; por defecto 0. Solo aplica con resultado positivo. */
-  reinvestmentPercent?: number;
+  /** Puntos base enteros entre 0 y 10000; por defecto 0. Solo tras pagar todo el trabajo. */
+  reinvestmentBps?: number;
   /** Valuado a costo por quien llama; el producto de temporada ya debe llegar en cero. */
   leftoverInventory: Cents;
 }
 
 export interface PartnerProfitSplit {
   partnerId: string;
+  /** Capital: gastos pagados por el socio más sus aportaciones a caja. */
   investment: Cents;
   /** Recuperación íntegra; la pérdida se refleja por separado en resultShare. */
   recoveredInvestment: Cents;
   labor: Cents;
+  laborPaid: Cents;
+  /** Informativo: no genera deuda ni se arrastra a otra campaña. */
+  laborUnpaid: Cents;
   resultShare: Cents;
   /** Puede ser negativo: no se limita a cero. */
   total: Cents;
@@ -40,9 +51,10 @@ export interface PartnerProfitSplit {
 export interface ProfitSplit {
   /** Orden ascendente de ID, por comparación de cadenas sin depender del idioma. */
   partners: readonly PartnerProfitSplit[];
+  /** Indicador informativo: ventas − gastos − todo el trabajo devengado. */
   result: Cents;
   reinvestment: Cents;
-  /** La caja recupera todo lo que pagó, incluso con pérdida; no participa en el resultado. */
+  /** Caja neta: gastos de caja − aportaciones. Negativo significa devolución de caja. */
   cashBoxRecovery: Cents;
   cashBoxTotal: Cents;
   leftoverInventory: Cents;
@@ -78,17 +90,20 @@ function assertAmount(amount: Cents, label: string): void {
   }
 }
 
-function isValidPercent(value: number): boolean {
-  return Number.isFinite(value) && value >= 0 && value <= 100;
+function isValidBps(value: number): boolean {
+  return Number.isSafeInteger(value) && value >= 0 && value <= 10000;
 }
 
 /**
- * Recupera inversión (socios y caja), paga trabajo, aparta reinversión y reparte el resultado.
- * Los socios absorben toda la pérdida según sus participaciones; la caja recupera íntegro.
+ * Recupera caja neta y capital; con el remanente paga trabajo (a prorrata si es insuficiente).
+ * Solo tras pagar todo el trabajo aparta reinversión y reparte ganancia. Si falta capital,
+ * los socios absorben esa pérdida según sus participaciones y no se paga trabajo.
  * allocate recibe los socios por ID ascendente (comparación UTF-16, sin localeCompare): el primer
- * socio con participación positiva recibe el centavo residual, también en pérdidas (negativo).
+ * socio con peso positivo recibe el centavo residual, también en pérdidas (negativo).
+ * Para trabajo, los pesos son los importes devengados; para ganancia/pérdida, shareBps.
  * El orden de entrada no altera el reparto. No modifica entradas ni cambia el estado de campaña:
  * la transición de cierre y sus permisos pertenecen a D4.
+ * Aplica a cierres desde esta decisión; K7 debe guardar el snapshot y no recalcular liquidados.
  */
 export function calculateProfitSplit(input: ProfitSplitInput): ProfitSplit {
   if (
@@ -103,24 +118,24 @@ export function calculateProfitSplit(input: ProfitSplitInput): ProfitSplit {
   }
 
   const partners = [...input.partners].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  const weights = partners.map((partner) => partner.sharePercent ?? 50);
-  if (weights.some((weight) => !isValidPercent(weight))) {
+  const weights = partners.map((partner) => partner.shareBps ?? 5000);
+  if (weights.some((weight) => !isValidBps(weight))) {
     throw new ProfitSplitError(
       'INVALID_SHARES',
-      'Las participaciones deben estar entre 0% y 100%.',
+      'Las participaciones deben ser puntos base enteros seguros entre 0 y 10000.',
     );
   }
-  if (weights.reduce((sum, weight) => sum + weight, 0) !== 100) {
+  if (weights.reduce((sum, weight) => sum + weight, 0) !== 10000) {
     throw new ProfitSplitError(
       'INVALID_SHARES',
-      'Las participaciones de los socios deben sumar 100%.',
+      'Las participaciones de los socios deben sumar 10000 puntos base.',
     );
   }
-  const reinvestmentPercent = input.reinvestmentPercent ?? 0;
-  if (!isValidPercent(reinvestmentPercent)) {
+  const reinvestmentBps = input.reinvestmentBps ?? 0;
+  if (!isValidBps(reinvestmentBps)) {
     throw new ProfitSplitError(
       'INVALID_REINVESTMENT',
-      'El porcentaje de reinversión debe estar entre 0% y 100%.',
+      'Los puntos base de reinversión deben ser enteros seguros entre 0 y 10000.',
     );
   }
 
@@ -154,19 +169,48 @@ export function calculateProfitSplit(input: ProfitSplitInput): ProfitSplit {
     }
   }
 
-  const result = subtract(subtract(input.totalSales, totalExpenses), totalLabor);
-  const reinvestment = result > 0 ? percentage(result, reinvestmentPercent) : ZERO;
-  const shares = allocate(subtract(result, reinvestment), weights);
+  for (const contribution of input.contributions ?? []) {
+    assertAmount(contribution.amount, 'La aportación');
+    const investment = investments.get(contribution.partnerId);
+    if (investment === undefined) {
+      throw new ProfitSplitError(
+        'UNKNOWN_PARTNER',
+        `La aportación pertenece al socio desconocido «${contribution.partnerId}».`,
+      );
+    }
+    investments.set(contribution.partnerId, add(investment, contribution.amount));
+    cashBoxRecovery = subtract(cashBoxRecovery, contribution.amount);
+  }
+
+  // Caja neta + capital = todos los gastos: las aportaciones se cancelan entre ambos.
+  const afterCapital = subtract(input.totalSales, totalExpenses);
+  const result = subtract(afterCapital, totalLabor);
+  const laborBudget =
+    afterCapital > ZERO ? (afterCapital < totalLabor ? afterCapital : totalLabor) : ZERO;
+  const laborPayments =
+    laborBudget > ZERO
+      ? allocate(
+          laborBudget,
+          partners.map((partner) => partner.labor),
+        )
+      : partners.map(() => ZERO);
+  // Negativo: pérdida de capital. Cero: trabajo parcial/equilibrio. Positivo: ganancia repartible.
+  const distributable = subtract(afterCapital, laborBudget);
+  const reinvestment = distributable > ZERO ? percentageBps(distributable, reinvestmentBps) : ZERO;
+  const shares = allocate(subtract(distributable, reinvestment), weights);
   const split = partners.map((partner, index): PartnerProfitSplit => {
     // Ambos índices existen: investments se inicializa por socio y allocate conserva la longitud.
     const investment = investments.get(partner.id)!;
     const resultShare = shares[index]!;
-    const total = add(investment, partner.labor, resultShare);
+    const laborPaid = laborPayments[index]!;
+    const total = add(investment, laborPaid, resultShare);
     return {
       partnerId: partner.id,
       investment,
       recoveredInvestment: investment,
       labor: partner.labor,
+      laborPaid,
+      laborUnpaid: subtract(partner.labor, laborPaid),
       resultShare,
       total,
       owes: total < 0,
