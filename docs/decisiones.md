@@ -2,6 +2,35 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-19 · Color requerido en materiales del catálogo de ejemplo
+
+- **Contexto:** `docs/datos/catalogo-ejemplo.json` definía `material.color` con `requerido: false` y `define_variante: true`, que la regla de C1 «define variante ⇒ requerido» rechaza. Se revisaron los artículos de tipo material: hilo de cáñamo (natural), liga de tela (café, rojo) y limpiapipas (café). Todas sus variantes tienen color.
+- **Decisión:** se marca `color` como requerido en el catálogo de ejemplo y se conserva la regla de C1 (confirmado con el usuario). El resto de los atributos que definen variante en el ejemplo ya eran requeridos.
+- **Consecuencias:** el seed de C2 puede cargar el catálogo sin excepciones a la regla. Se retira el pendiente que la decisión de C1 había dejado para C2.
+
+## 2026-11-19 · Tipos de artículo y atributos (C1)
+
+- **Contexto:** C1 es la primera historia full stack y define el patrón de las demás. La especificación modela atributos en tablas y valores en JSONB (§9), pero no decía cómo se identifican los valores si se renombra un atributo, cómo desactivar un atributo ni qué reglas cruzan sus campos.
+- **Decisión:**
+  - Modelo híbrido (confirmado con el usuario): definiciones en `article_types` y `attributes` con unicidad, llaves foráneas y CHECK; valores en JSONB (C2), validados contra la definición. Para 2 usuarios y un catálogo chico no se justifican tablas tipadas de valores.
+  - `attributes.key` se genera del nombre al crear (`attributeKey`: sin acentos, minúsculas, `_`) y no cambia; el nombre visible sí. Un nombre distinto con la misma clave («Diametro» frente a «Diámetro») es `KEY_CONFLICT`. Los nombres de atributo son únicos por tipo sin distinguir mayúsculas ni espacios, y un nombre cuya clave ya existe es `KEY_CONFLICT`. Los nombres de tipo se comparan por su clave generada: no distinguen mayúsculas, acentos, espacios ni signos («Maceta.» repite «Maceta»). Los índices únicos de la base (`lower(name)`, `(tipo, key)`) son el respaldo para carreras.
+  - `attributes.active` permite desactivar. El tipo de dato no se edita. «Define variante» implica «requerido» (dominio y CHECK). Unidad solo en número; opciones (al menos una, sin repetidas) si y solo si es lista.
+  - Borrar un tipo borra sus atributos en cascada. El bloqueo por uso (409 `ATTRIBUTE_IN_USE`, cambios incompatibles y tipos con artículos) se registró como criterio de C2, porque hasta entonces no hay artículos.
+  - Errores: el dominio lanza `ArticleTypeError` con código y mensaje; la API responde 422 con `runDomainRule`, 400 por forma (Zod), 404 con código propio y 409 si la base rechaza una carrera de unicidad; si el tipo se borra entre la validación y la escritura de un atributo, la llave foránea rota responde 404 (`guardWrite`). La interfaz usa `applyVariantRule` del dominio para completar «requerido» al marcar «define variante». Patrón documentado en `docs/patron-full-stack.md`.
+  - Playwright móvil conserva el Pixel 7 con viewport de 390×844 (confirmado con el usuario).
+- **Consecuencias:** las historias siguientes copian el patrón. Drizzle en la API no usa `casing`, así que las columnas `snake_case` se nombran explícitamente en `schema.ts`. Sin dependencias nuevas.
+
+## 2026-11-19 · Nombres en inglés en base de datos y código
+
+- **Contexto:** AGENTS.md pide código en inglés, pero la especificación (§9) modela en español y la decisión de D3 decía que el origen del precio se guardaría «en la base» como `manual`, `campana`, `lista`, `general`. C1 crea el primer enum de la base, así que hacía falta fijar la regla antes.
+- **Decisión:**
+  - Base de datos y código en inglés: tablas, columnas, enums y literales del dominio. Español solo en la interfaz (etiquetas, mensajes) y en la documentación.
+  - §9 conserva el modelo en español y agrega una tabla de equivalencias español → inglés de tablas y enums, en lugar de reescribirse.
+  - Sustituye expresamente lo dicho en D3 sobre valores en español en la base: `price_source` guarda `general`, `list`, `campaign`, `manual`.
+  - Inventario de `packages/domain` y `packages/contracts`: los tipos ya usaban inglés (`PriceSource`, `CampaignItemCostOrigin`, `category`, estados). El único literal en español era `SIZE_PLACEHOLDER = '{tamano}'`, que pasa a `'{size}'`; además se corrigen dos comentarios que hablaban de valores en español en la base. Es solo un renombre (commit aparte en el PR de C1).
+  - `docs/datos/catalogo-ejemplo.json` sigue en los nombres de la especificación. La fixture de pruebas de D2 traduce `{tamano}` a `SIZE_PLACEHOLDER`, y el seed de C2 hará la misma traducción.
+- **Consecuencias:** las historias que crean tablas usan los nombres de la tabla de equivalencias. Los valores capturados por los usuarios son datos y se guardan como se escriben; la clave de atributo se deriva del nombre (ver la decisión de C1).
+
 ## 2026-11-19 · Columna de notas en campañas
 
 - **Contexto:** la pantalla 12 dice que al clonar se copian las notas y D8 las copia en dominio, pero `campanas` en §9 no tenía dónde guardarlas. La decisión de D8 dejó pendiente dónde persistirlas.

@@ -1,0 +1,186 @@
+<section class="page">
+  <header class="header">
+    <div>
+      <p class="breadcrumb">Catálogo</p>
+      <h1>Tipos de artículo</h1>
+    </div>
+    @if (isDesktop()) {
+      <button mat-stroked-button type="button" (click)="newType()">
+        <mat-icon>add</mat-icon> Nuevo tipo
+      </button>
+    } @else {
+      <button mat-icon-button type="button" aria-label="Nuevo tipo" (click)="newType()">
+        <mat-icon>add</mat-icon>
+      </button>
+    }
+  </header>
+
+  @if (loadError()) {
+    <p class="error" role="alert">{{ loadError() }}</p>
+  } @else if (types.hasValue() && types.value().length === 0) {
+    <div class="empty card">
+      <p>Aún no hay tipos de artículo.</p>
+      <button mat-flat-button type="button" (click)="newType()">Crear el primero</button>
+    </div>
+  } @else {
+    <div class="layout" [class.desktop]="isDesktop()">
+      <nav class="types card" aria-label="Tipos de artículo">
+        @for (type of types.value(); track type.id) {
+          <button
+            type="button"
+            class="type"
+            [class.selected]="type.id === selected()?.id"
+            [attr.aria-current]="type.id === selected()?.id ? 'true' : null"
+            (click)="select(type.id)"
+          >
+            <span class="type-name">{{ type.name }}</span>
+            <span class="count">{{ activeCount(type) }}</span>
+            @if (!isDesktop()) {
+              <mat-icon class="chevron" aria-hidden="true">{{
+                type.id === selected()?.id ? 'expand_more' : 'chevron_right'
+              }}</mat-icon>
+            }
+          </button>
+        }
+      </nav>
+
+      @if (selected(); as type) {
+        <section class="attributes" [class.card]="isDesktop()" aria-labelledby="attributes-title">
+          <div class="attributes-header">
+            <div>
+              <h2 id="attributes-title">Atributos de {{ type.name }}</h2>
+              @if (isDesktop()) {
+                <p class="subtitle">
+                  Los atributos que definen variante generan un SKU por combinación.
+                </p>
+              }
+            </div>
+            <div class="actions">
+              @if (isDesktop()) {
+                <button mat-flat-button type="button" (click)="editAttribute(type.id)">
+                  <mat-icon>add</mat-icon> Nuevo atributo
+                </button>
+              } @else {
+                <button mat-button type="button" (click)="editAttribute(type.id)">
+                  <mat-icon>add</mat-icon> Nuevo atributo
+                </button>
+              }
+              <button
+                mat-icon-button
+                type="button"
+                aria-label="Acciones del tipo"
+                [matMenuTriggerFor]="typeMenu"
+              >
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #typeMenu="matMenu">
+                <button mat-menu-item type="button" (click)="renameType(type)">
+                  Renombrar tipo
+                </button>
+                <button mat-menu-item type="button" (click)="deleteType(type)">Borrar tipo</button>
+              </mat-menu>
+            </div>
+          </div>
+
+          @if (type.attributes.length === 0) {
+            <p class="muted">Este tipo aún no tiene atributos.</p>
+          } @else if (isDesktop()) {
+            <table>
+              <thead>
+                <tr>
+                  <th>Atributo</th>
+                  <th>Tipo de dato</th>
+                  <th>Unidad</th>
+                  <th>Opciones</th>
+                  <th>Requerido</th>
+                  <th>Define variante</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (attribute of type.attributes; track attribute.id) {
+                  <tr [class.inactive]="!attribute.active">
+                    <td>
+                      <button
+                        type="button"
+                        class="link"
+                        [attr.aria-label]="'Editar ' + attribute.name"
+                        (click)="editAttribute(type.id, attribute)"
+                      >
+                        {{ attribute.name }}
+                      </button>
+                      @if (!attribute.active) {
+                        <span class="chip muted-chip">Inactivo</span>
+                      }
+                    </td>
+                    <td>
+                      <span class="chip">{{ labels[attribute.dataType] }}</span>
+                    </td>
+                    <td>{{ attribute.unit ?? '—' }}</td>
+                    <td>{{ attribute.options?.join(', ') ?? '—' }}</td>
+                    <td>
+                      <mat-slide-toggle
+                        [checked]="attribute.required"
+                        [disabled]="attribute.definesVariant"
+                        [aria-label]="'Requerido: ' + attribute.name"
+                        (change)="toggleRequired(type.id, attribute, $event)"
+                      />
+                    </td>
+                    <td>
+                      <mat-slide-toggle
+                        [checked]="attribute.definesVariant"
+                        [aria-label]="'Define variante: ' + attribute.name"
+                        (change)="toggleVariant(type.id, attribute, $event)"
+                      />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <ul class="cards">
+              @for (attribute of type.attributes; track attribute.id) {
+                <li class="attribute-card card" [class.inactive]="!attribute.active">
+                  <div class="card-title">
+                    <button
+                      type="button"
+                      class="link"
+                      [attr.aria-label]="'Editar ' + attribute.name"
+                      (click)="editAttribute(type.id, attribute)"
+                    >
+                      {{ attribute.name }}
+                    </button>
+                    @if (!attribute.active) {
+                      <span class="chip muted-chip">Inactivo</span>
+                    }
+                    <span class="chip">{{ labels[attribute.dataType] }}</span>
+                  </div>
+                  <p class="detail">{{ detail(attribute) }}</p>
+                  <div class="card-toggles">
+                    <mat-slide-toggle
+                      [checked]="attribute.required"
+                      [disabled]="attribute.definesVariant"
+                      [aria-label]="'Requerido: ' + attribute.name"
+                      (change)="toggleRequired(type.id, attribute, $event)"
+                    >
+                      Requerido
+                    </mat-slide-toggle>
+                    <mat-slide-toggle
+                      [checked]="attribute.definesVariant"
+                      [aria-label]="'Define variante: ' + attribute.name"
+                      (change)="toggleVariant(type.id, attribute, $event)"
+                    >
+                      Define variante
+                    </mat-slide-toggle>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+          @if (type.attributes.length > 0) {
+            <p class="summary">{{ variantSummary() }}</p>
+          }
+        </section>
+      }
+    </div>
+  }
+</section>

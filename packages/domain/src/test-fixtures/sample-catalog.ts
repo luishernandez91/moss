@@ -11,7 +11,18 @@ import type {
   Product,
   RecipeComponent,
 } from '../cost-resolution.js';
+import { SIZE_PLACEHOLDER } from '../cost-resolution.js';
 import { fromPesos, type Cents } from '../money.js';
+
+/** El catálogo de ejemplo usa los nombres de la especificación: `{tamano}` es `SIZE_PLACEHOLDER`. */
+function translateFilter(filter: Record<string, AttributeValue>): Record<string, AttributeValue> {
+  return Object.fromEntries(
+    Object.entries(filter).map(([key, value]) => [
+      key,
+      value === '{tamano}' ? SIZE_PLACEHOLDER : value,
+    ]),
+  );
+}
 
 type RawPerSize = number | Record<string, number>;
 
@@ -84,7 +95,9 @@ function toComponent(raw: RawComponent, fallbackId: string): RecipeComponent {
       quantity: raw.cantidad ?? 1,
       ...(raw.concepto !== undefined && { concept: raw.concepto }),
       ...(raw.variante_sku !== undefined && { variantSku: raw.variante_sku }),
-      ...(raw.filtro_atributos !== undefined && { attributeFilter: raw.filtro_atributos }),
+      ...(raw.filtro_atributos !== undefined && {
+        attributeFilter: translateFilter(raw.filtro_atributos),
+      }),
     };
   }
   if (raw.monto === undefined || raw.concepto === undefined) {

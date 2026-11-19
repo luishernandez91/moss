@@ -1,0 +1,52 @@
+import { ConflictException, HttpException, UnprocessableEntityException } from '@nestjs/common';
+import type { ApiError } from '@moss/contracts';
+
+/** Forma común de los errores de dominio: `code` estable y `message` en español. */
+type DomainErrorClass = abstract new (...args: never[]) => Error & { readonly code: string };
+
+/**
+ * Ejecuta una regla de dominio y convierte su error en 422 `{ code, message }`.
+ * Cualquier otro error se propaga sin cambios.
+ */
+export function runDomainRule<T>(errorClass: DomainErrorClass, rule: () => T): T {
+  try {
+    return rule();
+  } catch (error) {
+    if (error instanceof errorClass) {
+      const body: ApiError = { code: error.code, message: error.message };
+      throw new UnprocessableEntityException(body);
+    }
+    throw error;
+  }
+}
+
+/** Código de error de PostgreSQL (SQLSTATE), directo o envuelto por Drizzle en `cause`. */
+export function postgresErrorCode(error: unknown): string | undefined {
+  for (let current: unknown = error; current instanceof Error; current = current.cause) {
+    const code = (current as Error & { code?: unknown }).code;
+    if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) return code;
+  }
+  return undefined;
+}
+
+export interface WriteGuards {
+  /** 23505: otra solicitud ganó la carrera de unicidad. Responde 409 con este cuerpo. */
+  unique?: ApiError;
+  /** 23503: el registro padre se borró entre la validación y la escritura. */
+  foreignKey?: () => HttpException;
+}
+
+/**
+ * Ejecuta una escritura y traduce las violaciones de restricciones que el dominio validó antes
+ * pero que una solicitud concurrente puede provocar. Cualquier otro error se propaga.
+ */
+export async function guardWrite<T>(action: () => Promise<T>, guards: WriteGuards): Promise<T> {
+  try {
+    return await action();
+  } catch (error) {
+    const code = postgresErrorCode(error);
+    if (code === '23505' && guards.unique) throw new ConflictException(guards.unique);
+    if (code === '23503' && guards.foreignKey) throw guards.foreignKey();
+    throw error;
+  }
+}
