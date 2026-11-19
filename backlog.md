@@ -134,13 +134,14 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
 
 ## Fase 1 · MVP: catálogo
 
-- [ ] **C1 · Tipos de artículo y atributos**
+- [x] **C1 · Tipos de artículo y atributos**
   - Depende: E0.5
-  - Spec: pantalla 3
+  - Spec: pantalla 3, §9
   - Criterios:
     - Tablas, endpoints CRUD y pantalla.
-    - Tipos de dato texto, número (con unidad), lista (con opciones), booleano; marca "define variante".
-    - No se puede borrar un atributo usado por artículos; solo desactivar.
+    - Tipos de dato texto, número (con unidad), lista (con opciones), booleano; marca "define variante" (implica requerido).
+    - Clave estable por atributo generada del nombre; un choque de claves es un error de dominio claro. El tipo de dato no se edita.
+    - Atributos desactivables y borrables. El bloqueo por uso en artículos pasa a C2.
 
 - [ ] **C2 · Artículos y variantes**
   - Depende: C1
@@ -149,7 +150,9 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Atributos fijos y de variante validados contra el tipo (en `contracts`, reutilizado por web y API).
     - SKU único. Filtros de lista por tipo y por atributo usando `jsonb`.
     - Historial de costos por variante.
-    - `db:seed` carga `docs/datos/catalogo-ejemplo.json`.
+    - `db:seed` carga `docs/datos/catalogo-ejemplo.json` (traduce `{tamano}` a `{size}` y los enums con la tabla de equivalencias de §9).
+    - Borrar un atributo usado por artículos o variantes responde 409 `ATTRIBUTE_IN_USE`; solo se puede desactivar. Lo mismo para los cambios incompatibles con los valores guardados; la lista exacta se define en el diseño de C2 (p. ej. quitar una opción en uso).
+    - Borrar un tipo de artículo con artículos responde 409 y no borra nada.
 
 - [ ] **C3 · Tamaños**
   - Depende: E0.5

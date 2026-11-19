@@ -3,12 +3,17 @@ import { authGuard } from './core/auth';
 import { Shell } from './core/shell/shell';
 import { NAV_ITEMS } from './core/navigation';
 
-const pendingRoutes: Routes = NAV_ITEMS.filter((item) => item.path !== 'inicio').map((item) => ({
-  path: item.path,
-  title: `${item.label} · Moss & Roots`,
-  loadComponent: () => import('./pages/pending-page').then((m) => m.PendingPage),
-  data: { title: item.label, story: item.story },
-}));
+/** Pantallas con historia implementada; el resto muestra la página provisional. */
+const IMPLEMENTED = ['inicio', 'tipos-de-articulo'];
+
+const pendingRoutes: Routes = NAV_ITEMS.filter((item) => !IMPLEMENTED.includes(item.path)).map(
+  (item) => ({
+    path: item.path,
+    title: `${item.label} · Moss & Roots`,
+    loadComponent: () => import('./pages/pending-page').then((m) => m.PendingPage),
+    data: { title: item.label, story: item.story },
+  }),
+);
 
 export const routes: Routes = [
   {
@@ -26,6 +31,12 @@ export const routes: Routes = [
         path: 'inicio',
         title: 'Dashboard · Moss & Roots',
         loadComponent: () => import('./pages/dashboard-page').then((m) => m.DashboardPage),
+      },
+      {
+        path: 'tipos-de-articulo',
+        title: 'Tipos de artículo · Moss & Roots',
+        loadComponent: () =>
+          import('./catalog/article-types/article-types-page').then((m) => m.ArticleTypesPage),
       },
       ...pendingRoutes,
       {

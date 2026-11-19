@@ -2,6 +2,18 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-19 · Tipos de artículo y atributos (C1)
+
+- **Contexto:** C1 es la primera historia full stack y define el patrón de las demás. La especificación modela atributos en tablas y valores en JSONB (§9), pero no decía cómo se identifican los valores si se renombra un atributo, cómo desactivar un atributo ni qué reglas cruzan sus campos.
+- **Decisión:**
+  - Modelo híbrido (confirmado con el usuario): definiciones en `article_types` y `attributes` con unicidad, llaves foráneas y CHECK; valores en JSONB (C2), validados contra la definición. Para 2 usuarios y un catálogo chico no se justifican tablas tipadas de valores.
+  - `attributes.key` se genera del nombre al crear (`attributeKey`: sin acentos, minúsculas, `_`) y no cambia; el nombre visible sí. Un nombre distinto con la misma clave («Diametro» frente a «Diámetro») es `KEY_CONFLICT`. Nombres únicos por tipo sin distinguir mayúsculas; los tipos tampoco distinguen acentos.
+  - `attributes.active` permite desactivar. El tipo de dato no se edita. «Define variante» implica «requerido» (dominio y CHECK). Unidad solo en número; opciones (al menos una, sin repetidas) si y solo si es lista.
+  - Borrar un tipo borra sus atributos en cascada. El bloqueo por uso (409 `ATTRIBUTE_IN_USE`, cambios incompatibles y tipos con artículos) se registró como criterio de C2, porque hasta entonces no hay artículos.
+  - Errores: el dominio lanza `ArticleTypeError` con código y mensaje; la API responde 422 con `runDomainRule`, 400 por forma (Zod), 404 con código propio y 409 si la base rechaza una carrera de unicidad (`guardUnique`). Patrón documentado en `docs/patron-full-stack.md`.
+  - Playwright móvil conserva el Pixel 7 con viewport de 390×844 (confirmado con el usuario).
+- **Consecuencias:** las historias siguientes copian el patrón. Drizzle en la API no usa `casing`, así que las columnas `snake_case` se nombran explícitamente en `schema.ts`. Sin dependencias nuevas.
+
 ## 2026-11-19 · Nombres en inglés en base de datos y código
 
 - **Contexto:** AGENTS.md pide código en inglés, pero la especificación (§9) modela en español y la decisión de D3 decía que el origen del precio se guardaría «en la base» como `manual`, `campana`, `lista`, `general`. C1 crea el primer enum de la base, así que hacía falta fijar la regla antes.

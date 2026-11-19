@@ -39,6 +39,9 @@ Componentes compartidos en `componentes/`: `menu-lateral.png` (navegación deskt
 | --- | --- | --- |
 | 01 | Enlace de recuperación de contraseña | E0.5 solo ofrece correo, contraseña y error; la recuperación por correo corresponde a F2.9 |
 | Menú | Secciones Pedidos, Catálogo y Negocio con Clientes, Calendario, Inventario y Listas de precios | Es la navegación objetivo; las opciones de fase 2 se muestran cuando exista su historia |
+| 03 | Contador de «Maceta» en 3 con cinco atributos en la tabla | El contador es el número de atributos activos del tipo |
+| 03 | Breadcrumb «Configuración › Catálogo» y la opción Configuración activa en el menú | La pantalla pertenece al catálogo (§4) y tiene su propia entrada «Tipos de artículo»; el breadcrumb dice «Catálogo» |
+| 03 | Interruptor «Requerido» editable en atributos que definen variante | Un atributo que define variante siempre es requerido: el interruptor queda activado y deshabilitado |
 | 24 | Tarjeta «Tipos de campaña» con el interruptor «No permitir empalme dentro del mismo tipo» | El empalme siempre se impide dentro del mismo tipo y no es configurable (§7, pantalla 24): la interfaz no lleva ese interruptor |
 
 Las pantallas 13, 14, 17 y 22 se regeneraron el 11 nov 2026 con la inversión por socio y el reparto 50/50 (ver `docs/decisiones.md`).

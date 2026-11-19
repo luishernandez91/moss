@@ -278,9 +278,12 @@ Modelo lógico. Montos en centavos enteros. La implementación en Drizzle traduc
 ```sql
 -- Catálogo
 tipos_articulo(id, nombre)
-atributos(id, tipo_articulo_id, nombre,
+atributos(id, tipo_articulo_id, clave, nombre,
           tipo_dato ENUM('texto','numero','lista','booleano'),
-          unidad NULL, opciones JSONB NULL, requerido, define_variante)
+          unidad NULL, opciones JSONB NULL, requerido, define_variante, activo)
+-- clave: se genera del nombre al crear (sin acentos, minúsculas, «_») y no cambia;
+-- es la llave de los valores en JSONB. Única por tipo, igual que el nombre.
+-- Unidad solo en número; opciones si y solo si es lista; define_variante ⇒ requerido.
 articulos(id, tipo_articulo_id, nombre, descripcion, foto,
           atributos_fijos JSONB, se_vende, se_usa_en_recetas, activo)
 articulo_variantes(id, articulo_id, sku, atributos JSONB,
