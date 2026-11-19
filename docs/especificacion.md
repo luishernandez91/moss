@@ -321,11 +321,8 @@ venta_items(id, venta_id, producto_id NULL, variante_id NULL, tamano_id NULL, ex
 
 -- Acceso (E0.5)
 usuarios(id UUID, correo UNIQUE, hash_contrasena, version_sesion INTEGER DEFAULT 0)
--- E0.5 implementa socios con id UUID, nombre y usuario_id UNIQUE NOT NULL.
--- S1 implementa participación en partners.share_bps (entero 0–10000, múltiplo de 100, default 5000)
--- y partners.version (entero no negativo, default 0); conserva usuario_id NOT NULL.
 -- Socios
-socios(id, nombre, participacion_pct, usuario_id NULL)
+socios(id UUID, nombre, share_bps INTEGER 0–10000 múltiplo de 100 DEFAULT 5000, version INTEGER DEFAULT 0, usuario_id UNIQUE NOT NULL)
 
 -- Pedidos (fase 2)
 clientes(id, nombre, whatsapp, tipo, notas)
