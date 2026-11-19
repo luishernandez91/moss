@@ -2,6 +2,12 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-19 · Color requerido en materiales del catálogo de ejemplo
+
+- **Contexto:** `docs/datos/catalogo-ejemplo.json` definía `material.color` con `requerido: false` y `define_variante: true`, que la regla de C1 «define variante ⇒ requerido» rechaza. Se revisaron los artículos de tipo material: hilo de cáñamo (natural), liga de tela (café, rojo) y limpiapipas (café). Todas sus variantes tienen color.
+- **Decisión:** se marca `color` como requerido en el catálogo de ejemplo y se conserva la regla de C1 (confirmado con el usuario). El resto de los atributos que definen variante en el ejemplo ya eran requeridos.
+- **Consecuencias:** el seed de C2 puede cargar el catálogo sin excepciones a la regla. Se retira el pendiente que la decisión de C1 había dejado para C2.
+
 ## 2026-11-19 · Tipos de artículo y atributos (C1)
 
 - **Contexto:** C1 es la primera historia full stack y define el patrón de las demás. La especificación modela atributos en tablas y valores en JSONB (§9), pero no decía cómo se identifican los valores si se renombra un atributo, cómo desactivar un atributo ni qué reglas cruzan sus campos.
@@ -12,7 +18,6 @@ Registro breve de decisiones. Una entrada por decisión, la más reciente arriba
   - Borrar un tipo borra sus atributos en cascada. El bloqueo por uso (409 `ATTRIBUTE_IN_USE`, cambios incompatibles y tipos con artículos) se registró como criterio de C2, porque hasta entonces no hay artículos.
   - Errores: el dominio lanza `ArticleTypeError` con código y mensaje; la API responde 422 con `runDomainRule`, 400 por forma (Zod), 404 con código propio y 409 si la base rechaza una carrera de unicidad; si el tipo se borra entre la validación y la escritura de un atributo, la llave foránea rota responde 404 (`guardWrite`). La interfaz usa `applyVariantRule` del dominio para completar «requerido» al marcar «define variante». Patrón documentado en `docs/patron-full-stack.md`.
   - Playwright móvil conserva el Pixel 7 con viewport de 390×844 (confirmado con el usuario).
-- **Pendiente:** `docs/datos/catalogo-ejemplo.json` tiene `material.color` con `requerido: false` y `define_variante: true`, que la nueva regla rechaza. Se registró en C2 para decidir antes del seed.
 - **Consecuencias:** las historias siguientes copian el patrón. Drizzle en la API no usa `casing`, así que las columnas `snake_case` se nombran explícitamente en `schema.ts`. Sin dependencias nuevas.
 
 ## 2026-11-19 · Nombres en inglés en base de datos y código

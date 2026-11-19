@@ -153,7 +153,6 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - `db:seed` carga `docs/datos/catalogo-ejemplo.json` (traduce `{tamano}` a `{size}` y los enums con la tabla de equivalencias de §9).
     - Borrar un atributo usado por artículos o variantes responde 409 `ATTRIBUTE_IN_USE`; solo se puede desactivar. Lo mismo para los cambios incompatibles con los valores guardados; la lista exacta se define en el diseño de C2 (p. ej. quitar una opción en uso).
     - Borrar un tipo de artículo con artículos responde 409 y no borra nada.
-    - Antes del seed, decidir cómo cumple `material.color` del catálogo de ejemplo (`requerido: false`, `define_variante: true`) la regla «define variante ⇒ requerido» de C1.
 
 - [ ] **C3 · Tamaños**
   - Depende: E0.5

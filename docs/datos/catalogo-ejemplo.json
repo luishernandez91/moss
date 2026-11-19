@@ -50,7 +50,7 @@
       "nombre": "Material de producción",
       "atributos": [
         { "nombre": "unidad_consumo", "tipo_dato": "lista", "opciones": ["metro", "pieza", "gramo", "litro"], "requerido": true, "define_variante": false },
-        { "nombre": "color", "tipo_dato": "lista", "opciones": ["natural", "café", "rojo", "blanco"], "requerido": false, "define_variante": true }
+        { "nombre": "color", "tipo_dato": "lista", "opciones": ["natural", "café", "rojo", "blanco"], "requerido": true, "define_variante": true }
       ]
     }
   ],
