@@ -122,12 +122,13 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Residuo de centavos de trabajo y ganancia/pérdida: `allocate` con pesos enteros exactos, por ID ascendente UTF-16; pesos cero no reciben residuo. Reinversión con `percentageBps` exacto y half-up.
     - Vigencia: cierres desde esta decisión; no recalcular los ya liquidados. K7 debe persistir el snapshot del cierre. K4 registra las aportaciones (persistencia y UI) como movimientos de campaña junto a los gastos; K7 solo las consume al cerrar.
 
-- [ ] **D8 · Clonación de campaña**
+- [x] **D8 · Clonación de campaña**
   - Depende: D4
+  - Spec: §5 (estados, pantalla 12), §9
   - Criterios:
-    - Produce un borrador sin fechas con nombre "(copia)", presupuesto, % reinversión, notas e items.
-    - Opción de costos: de la original o del catálogo. Precios especiales copiados con `requiere_revision = true`.
-    - Nunca copia gastos, producciones, ventas ni inventario sobrante.
+    - Solo desde cerrada o cancelada. Produce un borrador sin fechas con nombre "base (copia)" (sin duplicar el sufijo), tipo, presupuesto, % reinversión, notas e items; IDs de un generador inyectado.
+    - Opción de costos: de la original (compra → manual) o del catálogo (origen catálogo). Un item no disponible en el catálogo conserva su costo, se copia inactivo y genera el aviso `CATALOG_ITEM_UNAVAILABLE`. Precios especiales copiados con `requiere_revision = true`; ese campo es exclusivo del precio especial.
+    - Nunca copia gastos, aportaciones, producciones, ventas, inventario sobrante, fechas ni bitácora. No copia participaciones (no son por campaña).
 
 ---
 

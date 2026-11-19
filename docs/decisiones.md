@@ -2,6 +2,19 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-19 · Clonación de campaña (D8)
+
+- **Contexto:** §5 (pantalla 12) lista lo que se copia al clonar, pero omite el tipo de campaña (obligatorio para el empalme), menciona notas que no están en `campanas` (§9), no dice qué origen de costo queda en los items copiados ni qué pasa si un item ya no está en el catálogo, ni cómo nombrar la copia de una copia.
+- **Decisión:**
+  - `cloneCampaign` en `packages/domain` es pura. Los IDs nuevos salen de `newId` inyectado: primero la campaña y luego uno por item en orden de entrada; un ID vacío, repetido o igual a uno de la original es `INVALID_GENERATED_ID`. Errores de dominio `CampaignCloneError` con código y mensaje en español.
+  - Solo se clonan campañas cerradas o canceladas (§5, tabla y diagrama), con `canClone` de D4; si no, `CLONE_NOT_ALLOWED`. No se usa reloj: ambos estados son persistidos.
+  - Se copian nombre, tipo (confirmado con el usuario; §5 se actualizó), presupuesto, `reinvestmentBps`, notas e items, con `clonedFromId`. Las notas se copian en dominio sin cambiar el esquema; §9 aún no tiene columna de notas y agregarla (en K1) queda pendiente de aprobación. Las participaciones no se copian porque no son por campaña (pantallas 22 y 24). Nunca se copian gastos, aportaciones, producciones, ventas, inventario sobrante, fechas ni bitácora; clonar no genera evento (§8 regla 11). El clon nace borrador sin fechas, inventario sobrante en $0.
+  - Nombre: se recorta, se quitan los sufijos «(copia)» finales y se agrega uno solo («X (copia)» → «X (copia)»). Sin numerar: los nombres no son únicos.
+  - Costos «de la original»: se copia el costo; el origen se conserva salvo `compra`, que pasa a `manual`, porque el gasto que lo respaldaba no se copia (§8 regla 4). Costos «del catálogo»: un `CatalogCostLookup` inyectado (la API lo construye con `resolveCost` de D2) da el costo con origen `catalogo`. Si el item no existe o está inactivo en el catálogo, conserva su costo original con el origen ajustado, se copia con `activo = false` y genera el aviso `CATALOG_ITEM_UNAVAILABLE` (confirmado con el usuario).
+  - `requiere_revision` es exclusivo del precio especial (D3): es verdadero si y solo si el item tiene precio especial copiado. No se usa para la disponibilidad del catálogo. Sin precio especial no se conserva un motivo huérfano.
+  - Los items inactivos de la original se copian inactivos.
+- **Consecuencias:** K2 persiste el resultado en una transacción, muestra los avisos y permite reactivar un item revisado. Falta decidir dónde se persisten las notas (§9 no tiene la columna). D8 no cambia esquema ni agrega dependencias.
+
 ## 2026-11-19 · Prorrateo de costos fijos (D6)
 
 - **Contexto:** la especificación pide prorratear los costos fijos «por unidad» (§1) y «por unidad producida» (pantalla 13), para comparar costo de receta contra costo real. El backlog asignaba el residuo «a la última unidad», distinto de la regla de residuo de D7, y no había unidades planeadas en el modelo.
