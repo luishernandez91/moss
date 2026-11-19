@@ -46,23 +46,51 @@ export function negate(a: Cents): Cents {
 }
 
 /**
- * Redondeo half-up simétrico (0.5 se aleja de cero) sobre un número de centavos.
- * Se corrige el error de representación binaria antes de redondear.
+ * Único redondeo a centavos del dominio: numerador / denominador (enteros exactos) con half-up
+ * simétrico, es decir, 0.5 se aleja de cero (2.5 → 3, −2.5 → −3). Lo usan `multiply`,
+ * `percentageBps`, el prorrateo de D6 y los promedios ponderados futuros (F2.1). Lanza
+ * `MoneyError` si el denominador no es positivo o el resultado no es un entero seguro.
  */
-function roundHalfUp(value: number): number {
-  const corrected = Number(value.toPrecision(12));
-  return Math.sign(corrected) * Math.round(Math.abs(corrected));
+export function roundRatioToCents(numerator: bigint, denominator: bigint): Cents {
+  if (denominator <= 0n) {
+    throw new MoneyError('El denominador del redondeo debe ser positivo');
+  }
+  const absolute = numerator < 0n ? -numerator : numerator;
+  const rounded = (2n * absolute + denominator) / (2n * denominator);
+  const result = numerator < 0n ? -rounded : rounded;
+  if (result > BigInt(Number.MAX_SAFE_INTEGER) || result < BigInt(Number.MIN_SAFE_INTEGER)) {
+    throw new MoneyError('El resultado del redondeo excede los centavos enteros seguros');
+  }
+  return cents(Number(result));
+}
+
+/** Una cantidad finita como fracción decimal exacta de su representación más corta («0.01», «1e-7»). */
+function exactDecimal(quantity: number): { numerator: bigint; denominator: bigint } {
+  const match = /^(-)?(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/.exec(String(quantity));
+  if (!match) {
+    throw new MoneyError(`Cantidad inválida: ${quantity}`);
+  }
+  const [, sign, whole = '0', fraction = '', exponentText = '0'] = match;
+  const exponent = Number(exponentText) - fraction.length;
+  let numerator = BigInt(whole + fraction);
+  let denominator = 1n;
+  if (exponent >= 0) numerator *= 10n ** BigInt(exponent);
+  else denominator = 10n ** BigInt(-exponent);
+  return { numerator: sign ? -numerator : numerator, denominator };
 }
 
 /**
  * Multiplica un precio unitario por una cantidad que puede ser decimal
  * (ej. 0.01 de bulto, 4 metros) y redondea una sola vez a centavos.
+ * La cantidad se toma como el decimal que se escribió, no como su aproximación binaria.
  */
 export function multiply(unitPrice: Cents, quantity: number): Cents {
   if (!Number.isFinite(quantity)) {
     throw new MoneyError(`Cantidad inválida: ${quantity}`);
   }
-  return cents(roundHalfUp(unitPrice * quantity));
+  assertInteger(unitPrice, 'El monto');
+  const { numerator, denominator } = exactDecimal(quantity);
+  return roundRatioToCents(BigInt(unitPrice) * numerator, denominator);
 }
 
 /** Porcentaje de un monto, ej. percentage(ganancia, 30) para la reinversión. */
@@ -79,10 +107,7 @@ export function percentageBps(amount: Cents, bps: number): Cents {
   if (!Number.isSafeInteger(bps) || bps < 0 || bps > 10000) {
     throw new MoneyError('Los puntos base deben ser enteros seguros entre 0 y 10000');
   }
-  const signed = BigInt(amount);
-  const absolute = signed < 0n ? -signed : signed;
-  const rounded = (absolute * BigInt(bps) + 5000n) / 10000n;
-  return cents(Number(signed < 0n ? -rounded : rounded));
+  return roundRatioToCents(BigInt(amount) * BigInt(bps), 10000n);
 }
 
 /** Ruta exacta para pesos enteros: bps y montos de trabajo expresados en centavos. */
