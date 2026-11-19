@@ -95,7 +95,6 @@ export class ArticlesPage {
   protected async newArticle(): Promise<void> {
     const id = await this.open<ArticleDialog, ArticleDialogData, string>(ArticleDialog, {
       mode: 'create',
-      types: this.types.value(),
     });
     if (id) await this.router.navigate(['/catalogo', id]);
   }

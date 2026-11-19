@@ -78,4 +78,31 @@ describe('AttributeFields', () => {
       validateAttributeValues(definitions, 'fixed', { material: 'barro', codigo: '  ' }).values,
     ).toEqual({ material: 'barro' });
   });
+
+  it('un sí/no requerido apagado se envía como «no»; uno opcional apagado se omite', () => {
+    const withRequiredBoolean: AttributeDefinitionForValues[] = [
+      {
+        key: 'drenaje',
+        name: 'Drenaje',
+        dataType: 'boolean',
+        options: null,
+        required: true,
+        definesVariant: false,
+        active: true,
+      },
+      {
+        key: 'interior',
+        name: 'Interior',
+        dataType: 'boolean',
+        options: null,
+        required: false,
+        definesVariant: false,
+        active: true,
+      },
+    ];
+    expect(validateAttributeValues(withRequiredBoolean, 'fixed', {})).toEqual({
+      values: { drenaje: false },
+      errors: {},
+    });
+  });
 });

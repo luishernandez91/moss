@@ -95,7 +95,13 @@ export function multiply(unitPrice: Cents, quantity: number): Cents {
 
 /** Porcentaje de un monto, ej. percentage(ganancia, 30) para la reinversión. */
 export function percentage(amount: Cents, percent: number): Cents {
-  return multiply(amount, percent / 100);
+  if (!Number.isFinite(percent)) {
+    throw new MoneyError(`Porcentaje inválido: ${percent}`);
+  }
+  assertInteger(amount, 'El monto');
+  // Exacto: `percent / 100` en flotante convertiría 0.7 en 0.006999…
+  const { numerator, denominator } = exactDecimal(percent);
+  return roundRatioToCents(BigInt(amount) * numerator, denominator * 100n);
 }
 
 /**

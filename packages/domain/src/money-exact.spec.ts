@@ -5,6 +5,7 @@ import {
   cents,
   MoneyError,
   multiply,
+  percentage,
   percentageBps,
   roundRatioToCents,
   type Cents,
@@ -117,5 +118,14 @@ describe('roundRatioToCents: único redondeo a centavos', () => {
     expect(multiply(cents(100), 0.145)).toBe(15);
     expect(multiply(cents(-100), 0.145)).toBe(-15);
     expect(percentageBps(cents(5), 5000)).toBe(3);
+  });
+});
+
+describe('percentage con porcentajes decimales', () => {
+  it('redondea half-up el valor exacto, sin el error binario de percent / 100', () => {
+    expect(percentage(cents(500), 0.7)).toBe(4); // 3.5¢
+    expect(percentage(cents(1500), 0.7)).toBe(11); // 10.5¢
+    expect(percentage(cents(250), 1.4)).toBe(4); // 3.5¢
+    expect(percentage(cents(154000), 30)).toBe(46200);
   });
 });

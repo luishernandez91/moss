@@ -35,11 +35,6 @@ function plural(count: number, singular: string, pluralForm: string): string {
   return `${count} ${count === 1 ? singular : pluralForm}`;
 }
 
-function sameText(a: string, b: string): boolean {
-  const clean = (text: string) => text.trim().replace(/\s+/g, ' ').toLowerCase();
-  return clean(a) === clean(b);
-}
-
 export function assessAttributeDeletion(
   attribute: AttributeDefinition,
   usage: AttributeUsage,
@@ -52,15 +47,25 @@ export function assessAttributeDeletion(
   }
 }
 
+/** Si el atributo está activo antes y después del cambio; solo un atributo activo exige valor. */
+export interface AttributeActivity {
+  before: boolean;
+  after: boolean;
+}
+
 /**
  * Valida la definición resultante (`next`, ya normalizada por C1) contra los valores guardados.
- * Renombrar, agregar opciones y activar o desactivar siempre son compatibles.
+ * Renombrar el atributo, agregar opciones y desactivarlo siempre son compatibles. Reactivar un
+ * atributo requerido exige que no falten valores, igual que marcarlo como requerido.
  */
 export function assessAttributeChange(
   current: AttributeDefinition,
   next: AttributeDefinition,
   usage: AttributeUsage,
+  activity: AttributeActivity = { before: true, after: true },
 ): void {
+  const wasRequired = activity.before && current.required;
+  const isRequired = activity.after && next.required;
   if (next.dataType !== current.dataType) {
     throw new AttributeUsageError('ATTRIBUTE_IN_USE', 'El tipo de dato de un atributo no cambia.');
   }
@@ -71,24 +76,28 @@ export function assessAttributeChange(
         `No se puede cambiar «define variante» de «${current.name}»: tiene valores en ${plural(usage.valueCount, 'registro', 'registros')}.`,
       );
     }
-    if (next.definesVariant && usage.typeVariantCount > 0) {
+    // Sin valores, el atributo cambia de alcance y todos los registros del nuevo alcance carecen de él.
+    if (isRequired && next.definesVariant && usage.typeVariantCount > 0) {
       throw new AttributeUsageError(
         'ATTRIBUTE_VALUES_MISSING',
         `«${current.name}» pasaría a definir variante y faltaría su valor en ${plural(usage.typeVariantCount, 'variante', 'variantes')}.`,
       );
     }
+    if (isRequired && !next.definesVariant && usage.typeArticleCount > 0) {
+      throw new AttributeUsageError(
+        'ATTRIBUTE_VALUES_MISSING',
+        `«${current.name}» dejaría de definir variante y faltaría su valor en ${plural(usage.typeArticleCount, 'artículo', 'artículos')}.`,
+      );
+    }
   }
   if (current.options && next.options) {
-    const removed = current.options.filter(
-      (option) => !next.options!.some((candidate) => sameText(candidate, option)),
-    );
-    const inUse = removed.filter((option) =>
-      usage.optionsInUse.some((value) => sameText(value, option)),
-    );
+    // Comparación exacta: los valores guardados y el esquema de contracts distinguen mayúsculas.
+    const removed = current.options.filter((option) => !next.options!.includes(option));
+    const inUse = removed.filter((option) => usage.optionsInUse.includes(option));
     if (inUse.length > 0) {
       throw new AttributeUsageError(
         'ATTRIBUTE_IN_USE',
-        `No se pueden quitar opciones con valores guardados: ${inUse.join(', ')}.`,
+        `No se pueden quitar ni renombrar opciones con valores guardados: ${inUse.join(', ')}.`,
       );
     }
   }
@@ -99,14 +108,15 @@ export function assessAttributeChange(
     );
   }
   if (
-    next.required &&
-    !current.required &&
+    isRequired &&
+    !wasRequired &&
     next.definesVariant === current.definesVariant &&
     usage.missingCount > 0
   ) {
+    const action = activity.before ? 'marcarlo como requerido' : 'reactivarlo';
     throw new AttributeUsageError(
       'ATTRIBUTE_VALUES_MISSING',
-      `«${current.name}» no tiene valor en ${plural(usage.missingCount, 'registro', 'registros')}; llénalos antes de marcarlo como requerido.`,
+      `«${current.name}» no tiene valor en ${plural(usage.missingCount, 'registro', 'registros')}; llénalos antes de ${action}.`,
     );
   }
 }

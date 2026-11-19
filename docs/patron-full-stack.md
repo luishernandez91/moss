@@ -49,3 +49,5 @@ Después: compara las capturas con `docs/diseno/pantallas/NN-*` y registra las d
 - PostgreSQL: un `GROUP BY` sobre una expresión con parámetros (`col ->> $1`) no reconoce la misma expresión del `SELECT` (`$4`); agrupa por posición (`groupBy(sql\`1\`)`).
 - `defaultNow()` es `now()`, la hora de inicio de la transacción: filas creadas en la misma transacción empatan. Si el orden de creación importa, usa `default(sql\`clock_timestamp()\`)`.
 - Lo que Playwright crea y no tiene endpoint de borrado lo limpia `apps/api/test/browser-fixture.mjs` al terminar (catálogo con prefijo `e2e `).
+- Playwright y diálogos de Material: el foco pasa al primer campo cuando termina la animación de apertura. Si la prueba escribe antes, el texto puede caer en otro campo (se vio bajo carga: «SKU» recibió el costo). Después de abrir un diálogo llama `openedDialog(page)` (`apps/web/e2e/dialogs.ts`).
+- Un diálogo que necesita datos que se cargan con `httpResource` los lee vivos del servicio, no como copia al abrirse: si se abre antes de que lleguen, se quedaría vacío.

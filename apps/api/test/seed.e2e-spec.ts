@@ -230,6 +230,29 @@ describe('db:seed con el catálogo de ejemplo (PostgreSQL real)', () => {
     ).toEqual([]);
   });
 
+  it('un artículo existente con otra unidad de existencia aborta sin agregarle variantes', async () => {
+    const prefix = nextPrefix();
+    const [type] = await db
+      .insert(articleTypes)
+      .values({ name: `${prefix} Material de producción` })
+      .returning();
+    await db.insert(articles).values({
+      articleTypeId: type!.id,
+      name: `${prefix} Hilo de cáñamo`,
+      stockUnit: 'piece',
+      sold: false,
+      usedInRecipes: true,
+    });
+    await expect(seedCatalog(db, isolated(prefix))).rejects.toThrow(/Hilo de cáñamo.*pieza.*m/);
+    const sku = prefix.replace(/[^a-z0-9]/gi, '').toUpperCase();
+    expect(
+      await db
+        .select()
+        .from(articleVariants)
+        .where(eq(articleVariants.sku, `${sku}-MAT-HIL-NAT`)),
+    ).toEqual([]);
+  });
+
   it('una unidad de consumo fuera del enum aborta y nombra el valor', async () => {
     const prefix = nextPrefix();
     const catalog = isolated(prefix);

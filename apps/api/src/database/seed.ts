@@ -16,6 +16,7 @@ import {
   findDuplicateCombination,
   fromPesos,
   normalizeSku,
+  stockUnitLabels,
   validateStock,
   type AttributeDataType,
   type StockUnit,
@@ -278,7 +279,7 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
       }
 
       const [found] = await tx
-        .select({ id: articles.id })
+        .select({ id: articles.id, stockUnit: articles.stockUnit })
         .from(articles)
         .where(
           and(
@@ -287,6 +288,12 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
           ),
         );
       let articleId = found?.id;
+      if (found && found.stockUnit !== stockUnit) {
+        // Las variantes del catálogo expresan costo y existencia en su unidad: no se mezclan.
+        throw new SeedConflictError(
+          `${context}: ya existe con unidad de existencia «${stockUnitLabels[found.stockUnit]}» y el catálogo usa «${stockUnitLabels[stockUnit]}».`,
+        );
+      }
       if (articleId) {
         existing.articles += 1;
       } else {

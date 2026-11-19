@@ -12,14 +12,14 @@ import {
   type StockUnit,
 } from '@moss/contracts';
 import { apiErrorMessage } from '../../core/api-error';
+import { ArticleTypesApi } from '../article-types/article-types-api';
 import { ArticlesApi } from './articles-api';
 import { AttributeFields, validateAttributeValues } from './attribute-fields';
 import { readVariantDraft } from './variant-draft';
 import { EMPTY_VARIANT, VariantFields, type VariantDraft } from './variant-fields';
 
 export type ArticleDialogData =
-  | { mode: 'create'; types: readonly ArticleType[] }
-  | { mode: 'edit'; article: ArticleDetail; type: ArticleType };
+  { mode: 'create' } | { mode: 'edit'; article: ArticleDetail; type: ArticleType };
 
 /** Alta (con la primera variante) o edición de un artículo. Cierra con el ID guardado. */
 @Component({
@@ -48,7 +48,7 @@ export type ArticleDialogData =
               (change)="changeType($any($event.target).value)"
             >
               <option value="">Elige un tipo</option>
-              @for (type of data.types; track type.id) {
+              @for (type of types.value(); track type.id) {
                 <option [value]="type.id">{{ type.name }}</option>
               }
             </select>
@@ -155,6 +155,8 @@ export class ArticleDialog {
   protected readonly data = inject<ArticleDialogData>(MAT_DIALOG_DATA);
   private readonly api = inject(ArticlesApi);
   private readonly ref = inject<MatDialogRef<ArticleDialog, string>>(MatDialogRef);
+  /** Lista viva: si el diálogo se abre antes de que lleguen los tipos, se llena al llegar. */
+  protected readonly types = inject(ArticleTypesApi).types;
   protected readonly units = stockUnitSchema.options;
   protected readonly unitLabels = stockUnitLabels;
 
@@ -163,7 +165,7 @@ export class ArticleDialog {
   protected readonly type = computed(() =>
     this.data.mode === 'edit'
       ? this.data.type
-      : this.data.types.find((type) => type.id === this.typeId()),
+      : this.types.value().find((type) => type.id === this.typeId()),
   );
   protected readonly name = signal(this.editing?.name ?? '');
   protected readonly description = signal(this.editing?.description ?? '');

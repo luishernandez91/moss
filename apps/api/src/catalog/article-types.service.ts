@@ -168,9 +168,10 @@ export class ArticleTypesService {
       updateAttributeDefinition(current, changes, siblings),
     );
     const usage = await loadAttributeUsage(this.db, typeId, current.key, current.definesVariant);
+    const activity = { before: current.active, after: active ?? current.active };
     runDomainRule(
       AttributeUsageError,
-      () => assessAttributeChange(current, definition, usage),
+      () => assessAttributeChange(current, definition, usage, activity),
       409,
     );
     const [updated] = await guardWrite(

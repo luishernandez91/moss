@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+import { openedDialog } from './dialogs';
 
 const created: string[] = [];
 
@@ -28,6 +29,7 @@ async function addAttribute(
   attribute: { name: string; dataType: string; unit?: string; options?: string; variant?: boolean },
 ): Promise<void> {
   await page.getByRole('button', { name: 'Nuevo atributo' }).click();
+  await openedDialog(page);
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nombre').fill(attribute.name);
   await dialog.getByLabel('Tipo de dato').selectOption({ label: attribute.dataType });
@@ -46,6 +48,7 @@ test('administra tipos de artículo y sus atributos', async ({ page }, testInfo)
   await expect(page.getByRole('heading', { name: 'Tipos de artículo', level: 1 })).toBeVisible();
 
   await page.getByRole('button', { name: 'Nuevo tipo' }).click();
+  await openedDialog(page);
   await page.getByRole('dialog').getByLabel('Nombre').fill(typeName);
   await saveDialog(page);
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -68,6 +71,7 @@ test('administra tipos de artículo y sus atributos', async ({ page }, testInfo)
 
   // Un nombre distinto con la misma clave generada se rechaza con un mensaje claro.
   await page.getByRole('button', { name: 'Nuevo atributo' }).click();
+  await openedDialog(page);
   await page.getByRole('dialog').getByLabel('Nombre').fill('Diametro');
   await page.getByRole('dialog').getByLabel('Tipo de dato').selectOption({ label: 'Número' });
   await saveDialog(page);
@@ -81,6 +85,7 @@ test('administra tipos de artículo y sus atributos', async ({ page }, testInfo)
   await expect(page.getByText('1 atributo define variante: diámetro.')).toBeVisible();
 
   await page.getByRole('button', { name: 'Editar Drenaje' }).click();
+  await openedDialog(page);
   await page.getByRole('dialog').getByRole('switch', { name: 'Activo' }).click();
   await saveDialog(page);
   await expect(page.getByRole('dialog')).toHaveCount(0);

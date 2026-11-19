@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+import { openedDialog } from './dialogs';
 
 test.beforeEach(async ({ page }) => {
   const response = await page.request.post('/api/auth/login', {
@@ -76,6 +77,7 @@ test('alta de artículo y variantes, historial de costo, inactivas y filtros', a
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Catálogo/);
   await page.getByRole('button', { name: 'Nuevo artículo' }).click();
   const dialog = page.getByRole('dialog');
+  await openedDialog(page);
   await dialog.getByLabel('Tipo', { exact: true }).selectOption({ label: typeName });
   await dialog.getByLabel('Nombre', { exact: true }).fill(articleName);
   await dialog.getByLabel('Material').selectOption('concreto');
@@ -94,6 +96,7 @@ test('alta de artículo y variantes, historial de costo, inactivas y filtros', a
 
   // La misma combinación se rechaza con un mensaje claro; con otro diámetro se agrega.
   await page.getByRole('button', { name: 'Agregar variante' }).click();
+  await openedDialog(page);
   await dialog.getByLabel('SKU').fill(`${sku}-r08b`);
   await dialog.getByLabel('Forma').selectOption('redonda');
   await dialog.getByLabel('Diámetro').fill('8');
@@ -107,6 +110,7 @@ test('alta de artículo y variantes, historial de costo, inactivas y filtros', a
 
   // Editar el costo agrega una entrada al historial.
   await page.getByRole('button', { name: `Editar ${sku}-R08`, exact: true }).click();
+  await openedDialog(page);
   await dialog.getByLabel('Costo promedio').fill('18.00');
   await dialog.getByRole('button', { name: 'Guardar' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -139,6 +143,7 @@ test('alta de artículo y variantes, historial de costo, inactivas y filtros', a
     .getByRole('button', { name: typeName })
     .click();
   await page.getByRole('button', { name: 'Filtrar por atributo' }).click();
+  await openedDialog(page);
   await dialog.getByLabel('Atributo').selectOption({ label: 'Diámetro' });
   await dialog.getByLabel('Valor').fill('10');
   await dialog.getByRole('button', { name: 'Aplicar' }).click();
@@ -155,6 +160,7 @@ test('alta de artículo y variantes, historial de costo, inactivas y filtros', a
   await page.goto('/tipos-de-articulo');
   await page.getByRole('button', { name: new RegExp(`^${typeName}`) }).click();
   await page.getByRole('button', { name: 'Editar Material' }).click();
+  await openedDialog(page);
   await dialog.getByRole('button', { name: 'Borrar atributo' }).click();
   await page
     .getByRole('dialog')

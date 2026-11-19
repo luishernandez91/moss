@@ -44,6 +44,7 @@ Componentes compartidos en `componentes/`: `menu-lateral.png` (navegación deskt
 | 03 | Interruptor «Requerido» editable en atributos que definen variante | Un atributo que define variante siempre es requerido: el interruptor queda activado y deshabilitado |
 | 04, 05 | Fotos de artículo | Sin fotos en C2: un ícono genérico. El almacenamiento de archivos depende del despliegue (pregunta abierta del backlog) |
 | 05 | Gráfica escalonada del historial de costo | Lista de entradas (fecha · motivo · costo); sin gráfica en C2 |
+| 04, 05 | Costo y existencia de piezas sin unidad; «$0.50/m» y «300 m» en otros artículos | Igual que la imagen: la unidad de existencia del artículo va como sufijo, salvo en piezas |
 | 05 | Muestras de color junto al valor | El color es una opción de lista, no un código de color: se muestra solo el texto |
 | 04, 05 | Sin filtros ni acciones para inactivos | Artículos y variantes no se borran: «Mostrar inactivos» o «Mostrar inactivas» y la acción «Reactivar» |
 | 04 | La pastilla «Diámetro: 10 cm» aparece sin forma de agregarla | Al elegir un tipo aparece «Filtrar por atributo» (diálogo de atributo y valor) y «Con existencia» |

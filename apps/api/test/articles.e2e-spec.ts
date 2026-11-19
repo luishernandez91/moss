@@ -514,6 +514,52 @@ describe('artículos y variantes (PostgreSQL real)', () => {
       expect((variantNow.body as { message: string }).message).toMatch(/\d+ variantes?\.$/);
     });
 
+    it('cambiar solo mayúsculas de una opción en uso es 409', async () => {
+      expect((await patch(attribute('material'), { options: ['Concreto', 'barro'] })).status).toBe(
+        409,
+      );
+    });
+
+    it('reactivar un atributo requerido con valores faltantes es 409', async () => {
+      const created = await post(`/api/article-types/${macetaType}/attributes`, {
+        name: 'Sello',
+        dataType: 'text',
+        required: false,
+        definesVariant: false,
+      });
+      const path = `/api/article-types/${macetaType}/attributes/${(created.body as Attribute).id}`;
+      expect((await patch(path, { active: false })).status).toBe(200);
+      expect((await patch(path, { required: true })).status).toBe(200);
+      const reactivated = await patch(path, { active: true });
+      expect(reactivated.status).toBe(409);
+      expect(reactivated.body).toMatchObject({ code: 'ATTRIBUTE_VALUES_MISSING' });
+    });
+
+    it('un atributo de variante sin valores no pasa a fijo requerido si el tipo tiene artículos', async () => {
+      const type = await createType('Sin valores', [
+        {
+          name: 'Tono',
+          dataType: 'list',
+          options: ['claro'],
+          required: true,
+          definesVariant: true,
+        },
+      ]);
+      const tono = `/api/article-types/${type}/attributes/${attributeIds['tono']}`;
+      expect((await patch(tono, { active: false })).status).toBe(200);
+      await createArticle({
+        articleTypeId: type,
+        name: `${prefix} Sin tono`,
+        stockUnit: 'piece',
+        sold: true,
+        usedInRecipes: false,
+        variants: [{ sku: sku('tono'), averageCost: 100, price: null, stock: 1 }],
+      });
+      const moved = await patch(tono, { definesVariant: false, active: true });
+      expect(moved.status).toBe(409);
+      expect(moved.body).toMatchObject({ code: 'ATTRIBUTE_VALUES_MISSING' });
+    });
+
     it('un atributo nuevo requerido o de variante en un tipo con artículos es 409', async () => {
       const fixed = await post(`/api/article-types/${macetaType}/attributes`, {
         name: 'Peso',

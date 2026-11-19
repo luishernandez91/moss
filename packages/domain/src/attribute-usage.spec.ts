@@ -91,7 +91,7 @@ describe('assessAttributeChange', () => {
     expectError(
       () => assessAttributeChange(color, { ...color, options: ['blanco', 'negro'] }, used()),
       'ATTRIBUTE_IN_USE',
-      'No se pueden quitar opciones con valores guardados: gris.',
+      'No se pueden quitar ni renombrar opciones con valores guardados: gris.',
     );
     expect(() =>
       assessAttributeChange(color, { ...color, options: ['gris', 'blanco'] }, used()),
@@ -108,10 +108,12 @@ describe('assessAttributeChange', () => {
         ),
       'ATTRIBUTE_IN_USE',
     );
-    // Solo cambiar mayúsculas o espacios no es renombrar.
-    expect(() =>
-      assessAttributeChange(color, { ...color, options: ['Gris', 'blanco', 'negro'] }, used()),
-    ).not.toThrow();
+    // Cambiar solo mayúsculas también es renombrar: los valores guardados dejarían de coincidir.
+    expectError(
+      () =>
+        assessAttributeChange(color, { ...color, options: ['Gris', 'blanco', 'negro'] }, used()),
+      'ATTRIBUTE_IN_USE',
+    );
   });
 
   it('bloquea cambiar la unidad de un número en uso', () => {
@@ -177,6 +179,70 @@ describe('assessAttributeChange', () => {
     expect(() =>
       assessAttributeChange(material, { ...material, dataType: 'text', options: null }, unused),
     ).toThrow(AttributeUsageError);
+  });
+});
+
+describe('assessAttributeChange con atributos inactivos', () => {
+  const inactive = { before: false, after: true };
+
+  it('reactivar un atributo requerido con valores faltantes es 409', () => {
+    expectError(
+      () =>
+        assessAttributeChange(
+          material,
+          { ...material, required: true },
+          used({ missingCount: 2 }),
+          inactive,
+        ),
+      'ATTRIBUTE_VALUES_MISSING',
+    );
+    expectError(
+      () =>
+        assessAttributeChange(
+          { ...material, required: true },
+          { ...material, required: true },
+          used({ missingCount: 2 }),
+          inactive,
+        ),
+      'ATTRIBUTE_VALUES_MISSING',
+    );
+    expect(() =>
+      assessAttributeChange(
+        { ...material, required: true },
+        { ...material, required: true },
+        used({ missingCount: 0 }),
+        inactive,
+      ),
+    ).not.toThrow();
+  });
+
+  it('marcar requerido mientras está inactivo se permite; el chequeo ocurre al reactivar', () => {
+    expect(() =>
+      assessAttributeChange(material, { ...material, required: true }, used({ missingCount: 2 }), {
+        before: false,
+        after: false,
+      }),
+    ).not.toThrow();
+  });
+
+  it('«define variante» de sí a no sin valores exige valor en los artículos del tipo si queda requerido', () => {
+    expectError(
+      () =>
+        assessAttributeChange(
+          color,
+          { ...color, definesVariant: false },
+          { ...unused, typeArticleCount: 3, typeVariantCount: 4 },
+        ),
+      'ATTRIBUTE_VALUES_MISSING',
+      '«Color» dejaría de definir variante y faltaría su valor en 3 artículos.',
+    );
+    expect(() =>
+      assessAttributeChange(
+        color,
+        { ...color, required: false, definesVariant: false },
+        { ...unused, typeArticleCount: 3 },
+      ),
+    ).not.toThrow();
   });
 });
 

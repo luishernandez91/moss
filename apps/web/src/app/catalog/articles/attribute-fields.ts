@@ -28,6 +28,18 @@ export function validateAttributeValues(
         !(typeof value === 'number' && Number.isNaN(value)),
     ),
   );
+  // Un interruptor apagado de un sí/no requerido significa «no»; el valor no queda sin capturar.
+  for (const definition of definitions) {
+    if (
+      definition.dataType === 'boolean' &&
+      definition.required &&
+      definition.active &&
+      definition.definesVariant === (scope === 'variant') &&
+      cleaned[definition.key] === undefined
+    ) {
+      cleaned[definition.key] = false;
+    }
+  }
   const parsed = buildAttributesSchema(definitions, scope).safeParse(cleaned);
   if (parsed.success) return { values: parsed.data, errors: {} };
   const errors: Record<string, string> = {};
