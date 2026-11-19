@@ -115,7 +115,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Con pérdida o trabajo parcialmente pagado no hay reinversión. Casos: ventas $1,200/capital otro $1,000/trabajo Luis $400 → $200/$1,000; ventas $600/capital Luis $300 y otro $700/trabajo Luis $400 → $100/$500; Nochebuena real → $1,365/$15 y trabajo impago $600.
     - La caja recupera íntegra su financiación neta incluso con pérdida, sin participación en el resultado. Totales de socios + total de caja = ventas, incluyendo caja neta negativa.
     - Residuo de centavos de trabajo y ganancia/pérdida: `allocate` con pesos enteros exactos, por ID ascendente UTF-16; pesos cero no reciben residuo. Reinversión con `percentageBps` exacto y half-up.
-    - Vigencia: cierres desde esta decisión; no recalcular los ya liquidados. K7 debe persistir el snapshot del cierre. Registro de aportaciones (persistencia y UI): corresponde a K7 o a una historia nueva, a definir.
+    - Vigencia: cierres desde esta decisión; no recalcular los ya liquidados. K7 debe persistir el snapshot del cierre. K4 registra las aportaciones (persistencia y UI) como movimientos de campaña junto a los gastos; K7 solo las consume al cerrar.
 
 - [ ] **D8 · Clonación de campaña**
   - Depende: D4
@@ -194,14 +194,15 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Precio especial editable con semáforo de margen (D3).
     - Solo lectura completa en cerrada o cancelada, también en API.
 
-- [ ] **K4 · Registrar gasto**
+- [ ] **K4 · Registrar gastos y aportaciones**
   - Depende: K3
   - Spec: pantalla 14
   - Criterios:
     - Formulario con Signal Forms; foto del ticket opcional (almacenamiento local en desarrollo).
     - "Quién pagó" obligatorio: uno de los socios o "Caja del negocio".
+    - Persistencia y UI para registrar aportaciones de socios a la caja como movimientos de campaña junto a los gastos, identificando socio e importe. Son financiación, no gastos; no se suman al gasto de la campaña. K7 consume estas aportaciones en el cierre.
     - Una compra ligada a un item actualiza su costo con origen "compra".
-    - Rechazado si la campaña no admite movimientos.
+    - Registro de gastos y aportaciones rechazado si la campaña no admite movimientos.
 
 - [ ] **K5 · Registrar producción**
   - Depende: K3, D2
@@ -225,7 +226,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Captura de inventario sobrante; producto de temporada en $0.
     - Cascada y tabla por socio de D7; un total negativo se muestra como "Debe aportar". Trabajo devengado, pagado e impago separados; el impago no genera deuda ni se arrastra.
     - Guardar una copia fija (snapshot) de todo el resultado del cierre y mostrarla sin recalcular. La nueva regla de D7 aplica desde su decisión; preservar cierres ya liquidados.
-    - Pendiente de definir: registro de aportaciones de socios (persistencia y UI) en K7 o en una historia nueva.
+    - Consumir las aportaciones registradas en K4 para el cálculo de D7; K7 no captura ni registra aportaciones.
     - Confirmación explícita antes de cerrar.
     - Reabrir con motivo desde la campaña cerrada.
 

@@ -2,6 +2,12 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-18 · Registro de aportaciones en K4
+
+- **Contexto:** la decisión de D7 dejó pendiente asignar la persistencia y UI de aportaciones a K7 o a una historia nueva.
+- **Decisión:** K4, ahora «Registrar gastos y aportaciones», registra la aportación del socio a caja como movimiento de campaña junto a los gastos. La aportación sigue siendo financiación, no un gasto. K7 solo consume esos movimientos al calcular el cierre con D7.
+- **Consecuencias:** se resuelve la asignación pendiente de «Reparto en cascada, puntos base y aportaciones (D7)», sin editar esa entrada histórica. El backlog concentra captura y persistencia en K4; la dependencia existente de K7 respecto de K4 ya cubre las aportaciones. Este ajuste solo organiza el trabajo futuro, sin implementar K4 ni modificar el cálculo de D7.
+
 ## 2026-11-18 · Reparto en cascada, puntos base y aportaciones (D7)
 
 - **Contexto:** el cálculo inicial descontaba todo el trabajo devengado antes de repartir la pérdida y podía pagar trabajo a costa del capital del otro socio. Los socios aprobaron recuperar primero caja y capital, pagar trabajo solo con el remanente e identificar aportaciones que financian gastos de caja.
