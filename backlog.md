@@ -100,11 +100,13 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Detecta empalme entre rangos cerrados `[inicio, fin]` del mismo tipo para estados programada, activa y por cerrar; ignora borradores, cerradas y canceladas.
     - Pruebas: 1–15 dic contra 10–31 dic mismo tipo → empalme; tipos distintos → sin empalme; fin = inicio de otra → empalme.
 
-- [ ] **D6 · Prorrateo de costos fijos**
+- [x] **D6 · Prorrateo de costos fijos**
   - Depende: D1
+  - Spec: §1, pantalla 13, §8 regla 1
   - Criterios:
-    - Reparte los costos fijos de la campaña entre las unidades producidas; el residuo de centavos se asigna a la última unidad para que la suma cuadre.
+    - Reparte los costos fijos de la campaña entre las unidades producidas (por unidad, sin pesos) con `allocate`: entre líneas, el residuo de centavos va por ID ascendente UTF-16; dentro de cada línea, con pesos iguales, de modo que ninguna pieza difiere en más de 1¢. La suma asignada cuadra con el total; sin unidades producidas, el total queda sin asignar.
     - Devuelve costo real por pieza = costo de receta + prorrateo, para comparar contra el costo de receta.
+    - Solo para precio y comparación: no participa en el cierre, que ya descuenta los gastos fijos reales en D7.
 
 - [x] **D7 · Cierre y reparto**
   - Depende: D1
