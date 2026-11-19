@@ -42,14 +42,17 @@ Cada historia es una unidad de trabajo para un agente: una rama, un PR. El orden
     - Utilidades de formato: `formatMoney(centavos)` → `$1,540.00`, `formatDate` → `10 nov 2026`.
     - Una prueba e2e con Playwright que abre la app.
 
-- [ ] **E0.5 · Autenticación**
+- [x] **E0.5 · Autenticación**
   - Depende: E0.3, E0.4
   - Spec: pantalla 1
   - Criterios:
-    - Login con correo y contraseña (hash argon2), sesión en cookie `httpOnly`, `secure`, `sameSite=lax`.
-    - Usuario ligado a un socio. Rutas de API protegidas por defecto.
-    - Script para crear los dos usuarios iniciales; sin registro público.
-    - Recuperación de contraseña: fuera del MVP si no hay correo configurado; dejar la decisión anotada.
+    - Login con correo y contraseña; scrypt de Node con sal aleatoria, N=32768, r=8, p=3 y maxmem=64 MiB. Sin dependencias nuevas.
+    - Cookie firmada HMAC, vencimiento a 30 días, `httpOnly`, `sameSite=lax`, `secure` en producción; sin tabla de sesiones. Incluye `session_version`, comprobada contra el usuario.
+    - Usuario ligado a un socio con UUID. Guard global de API (health, login y logout públicos), guard de rutas Angular y logout.
+    - `pnpm auth:set-password <correo> [nombre]`: crea usuario y socio o cambia contraseña; entrada oculta por terminal, mínimo 6 caracteres. El cambio incrementa `session_version` e invalida las sesiones del usuario.
+    - Cinco fallos de login por IP bloquean 15 minutos; mapa en memoria con limpieza de entradas vencidas. Métodos que modifican estado exigen JSON solo cuando tienen cuerpo.
+    - Sin registro público ni recuperación por correo (F2.9). Rotar `SESSION_SECRET` invalida todas las sesiones; logout solo borra la cookie.
+    - Pruebas de hash real, login, protección, expiración/alteración, versión, bloqueo y flujo web desktop/celular. Operación local en `docs/autenticacion.md`.
 
 ---
 

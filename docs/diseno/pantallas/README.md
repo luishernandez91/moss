@@ -37,6 +37,7 @@ Componentes compartidos en `componentes/`: `menu-lateral.png` (navegación deskt
 
 | # | La imagen muestra | La especificación dice |
 | --- | --- | --- |
+| 01 | Enlace de recuperación de contraseña | E0.5 solo ofrece correo, contraseña y error; la recuperación por correo corresponde a F2.9 |
 | Menú | Secciones Pedidos, Catálogo y Negocio con Clientes, Calendario, Inventario y Listas de precios | Es la navegación objetivo; las opciones de fase 2 se muestran cuando exista su historia |
 | 24 | Tarjeta «Tipos de campaña» con el interruptor «No permitir empalme dentro del mismo tipo» | El empalme siempre se impide dentro del mismo tipo y no es configurable (§7, pantalla 24): la interfaz no lleva ese interruptor |
 

@@ -2,6 +2,18 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-18 · Autenticación interna mínima (E0.5)
+
+- **Contexto:** el sistema lo usan dos socios. Se aprobó reducir la autenticación a funciones de Node y las dependencias ya instaladas, con invalidación por usuario al cambiar contraseña.
+- **Decisión:**
+  - scrypt asíncrono de `node:crypto`, N=32768, r=8, p=3, clave de 64 bytes y sal aleatoria de 16 bytes que se renueva con cada contraseña. `maxmem` explícito de 64 MiB para no alcanzar el límite por defecto de Node. Comparación con `timingSafeEqual` y prueba que ejecuta el hash real.
+  - Cookie `moss.sid` firmada con HMAC-SHA256 y `SESSION_SECRET`: contiene `userId`, `sessionVersion` y vencimiento absoluto a 30 días, sin renovación deslizante. `httpOnly`, `SameSite=lax`, `Path=/api`, sin Domain, `secure` en producción. Sin tabla de sesiones ni librerías nuevas.
+  - Tablas mínimas `users` (UUID, correo único normalizado, hash, `session_version` entero default 0) y `partners` (UUID, nombre, usuario único). El UUID de socio es un string compatible con D7. Cada petición protegida consulta la cuenta y compara la versión de la cookie con la base.
+  - Un comando `pnpm auth:set-password <correo> [nombre]` solicita la contraseña sin mostrarla (mínimo 6 caracteres). Crea usuario y socio en una transacción o cambia el hash e incrementa `session_version`. Si el socio ya existe, conserva su ID y nombre; al crear sin nombre usa la parte anterior a `@`. Sin registro público ni recuperación por correo (F2.9).
+  - Guard global de API (health, login y logout públicos) y guard de rutas Angular. Los métodos que modifican estado exigen `application/json` solo cuando llevan cuerpo; POST de logout sin cuerpo es válido. Sin token CSRF ni CORS con credenciales entre orígenes. El proxy de web mantiene el mismo origen.
+  - Cinco fallos por IP bloquean 15 minutos desde el quinto fallo. Mapa en memoria; limpieza de entradas vencidas en cada consulta/registro; éxito borra el contador y contadores inactivos caducan tras 15 minutos. `TRUST_PROXY_HOPS=0` por defecto; solo se configura detrás de proxies controlados.
+- **Consecuencias:** cambiar contraseña invalida las sesiones previas de esa cuenta. Rotar `SESSION_SECRET` y reiniciar la API invalida todas. Logout solo borra la cookie: una copia externa continúa válida hasta vencimiento, cambio de contraseña o rotación del secreto. El limitador es por proceso y se vacía al reiniciar; el despliegue mínimo usa una instancia. La API necesita consultar PostgreSQL para validar la versión, aunque no persiste sesiones. No hay credenciales de desarrollo compartidas: cada desarrollador crea las cuentas mediante el comando. Procedimiento en `docs/autenticacion.md`.
+
 ## 2026-11-18 · Registro de aportaciones en K4
 
 - **Contexto:** la decisión de D7 dejó pendiente asignar la persistencia y UI de aportaciones a K7 o a una historia nueva.

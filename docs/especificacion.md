@@ -62,8 +62,12 @@ En cada venta se guardan el precio de lista, el precio aplicado y su origen (`ge
 
 **1. Iniciar sesión** · MVP
 
-- Login con correo y contraseña, y recuperación de contraseña.
-- Cada usuario está ligado a un socio.
+- Login con correo y contraseña y error genérico. Uso interno de dos socios; sin registro público. Recuperación por correo diferida a F2.9.
+- Cada usuario está ligado a un socio con ID UUID. Las cuentas se crean y las contraseñas se cambian con `pnpm auth:set-password <correo> [nombre]`; contraseña oculta por terminal, mínimo 6 caracteres.
+- Hash scrypt de Node con sal aleatoria por usuario (N=32768, r=8, p=3, maxmem=64 MiB). Cookie firmada HMAC con usuario, versión de sesión y vencimiento absoluto a 30 días: `httpOnly`, `SameSite=lax`, `secure` en producción. No hay tabla de sesiones.
+- Cambiar contraseña incrementa `users.session_version` y el guard rechaza cookies anteriores. Rotar `SESSION_SECRET` y reiniciar invalida todas las sesiones. Cerrar sesión borra la cookie del navegador; una copia externa sigue válida hasta vencer o invalidarse por versión/secreto.
+- API protegida por defecto (health, login y logout públicos); rutas web protegidas. Sin token CSRF: los métodos que modifican estado requieren `application/json` si llevan cuerpo; logout admite POST sin cuerpo. Sin CORS con credenciales entre orígenes.
+- Cinco fallos de login por IP bloquean 15 minutos, en memoria del proceso; las entradas vencidas se eliminan al consultar o registrar intentos. Un login correcto reinicia el contador; contadores sin actividad también vencen a los 15 minutos. Reiniciar la API borra estos contadores.
 
 **2. Dashboard** · MVP
 
@@ -311,6 +315,10 @@ venta_items(id, venta_id, producto_id NULL, variante_id NULL, tamano_id NULL, ex
          cantidad, costo_unitario_snapshot, precio_lista NULL, precio_aplicado,
          origen_precio ENUM('general','lista','campana','manual'), motivo_ajuste NULL)
 
+-- Acceso (E0.5)
+usuarios(id UUID, correo UNIQUE, hash_contrasena, version_sesion INTEGER DEFAULT 0)
+-- E0.5 implementa socios con id UUID, nombre y usuario_id UNIQUE NOT NULL.
+-- La participación se incorpora con la historia de socios.
 -- Socios
 socios(id, nombre, participacion_pct, usuario_id NULL)
 

@@ -5,6 +5,13 @@ const envSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(3000),
   TZ_BUSINESS: z.string().default('America/Mexico_City'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  SESSION_SECRET: z
+    .string()
+    .refine(
+      (value) => Buffer.byteLength(value) >= 32,
+      'SESSION_SECRET debe contener al menos 32 bytes aleatorios',
+    ),
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
 });
 
 export type Env = z.infer<typeof envSchema>;
