@@ -2,6 +2,18 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-19 · Prorrateo de costos fijos (D6)
+
+- **Contexto:** la especificación pide prorratear los costos fijos «por unidad» (§1) y «por unidad producida» (pantalla 13), para comparar costo de receta contra costo real. El backlog asignaba el residuo «a la última unidad», distinto de la regla de residuo de D7, y no había unidades planeadas en el modelo.
+- **Decisión:**
+  - `allocateFixedCosts` en `packages/domain` es pura. Recibe el total de costos fijos y líneas de costeo (ID, unidades producidas, suma de costos de receta de los snapshots de producción). El llamador decide qué gastos son fijos y arma las líneas.
+  - Base: unidades producidas, sin unidades planeadas ni pesos. Peso de cada línea = sus unidades. Si una campaña real muestra distorsión entre productos de tamaño o esfuerzo muy distinto, se agregará un peso entero opcional por línea con valor 1 por defecto, de modo que el comportamiento actual no cambie.
+  - Residuo con `allocate`: entre líneas, por ID ascendente UTF-16 sin configuración regional, sin residuo para líneas sin unidades; dentro de cada línea, con pesos iguales (`base` y `unitsWithExtraCent`), así ninguna pieza difiere en más de 1¢. Sustituye la frase «a la última unidad» del backlog.
+  - Las cifras por pieza (`fixedPerUnit`, `recipeUnitCost`, `realUnitCost`) son informativas y se redondean half-up una sola vez desde los totales, con `bigint`. El monto exacto es `allocated`; Σ allocated + unallocated = total.
+  - Sin unidades producidas no hay base: el total queda en `unallocated` y las cifras por pieza son `null`.
+  - Errores de dominio `FixedCostAllocationError` con código y mensaje en español, como D7. `MoneyError` solo por desbordamiento.
+- **Consecuencias:** no hay doble conteo. `calculateProfitSplit` (D7) ya descuenta todos los gastos reales, fijos incluidos; D6 no devuelve resultado ni montos de socios; K7 (que depende de D6) puede mostrar sus cifras, pero nunca las pasa a `calculateProfitSplit` ni las suma al resultado. Solo redistribuye por pieza un gasto que ya existe, para la pestaña Costos fijos, la comparación receta contra real y los reportes. No persiste snapshots ni modifica catálogo o precios. Sin dependencias nuevas ni cambios de esquema.
+
 ## 2026-11-18 · Autenticación interna mínima (E0.5)
 
 - **Contexto:** el sistema lo usan dos socios. Se aprobó reducir la autenticación a funciones de Node y las dependencias ya instaladas, con invalidación por usuario al cambiar contraseña.

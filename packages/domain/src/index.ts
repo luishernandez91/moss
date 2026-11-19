@@ -5,3 +5,4 @@ export * from './cost-resolution.js';
 export * from './price-resolution.js';
 export * from './campaign-overlap.js';
 export * from './profit-split.js';
+export * from './fixed-cost-allocation.js';
