@@ -180,6 +180,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
   - Criterios:
     - Tabla con restricción `EXCLUDE USING gist (type WITH =, daterange(start_date, end_date, '[]') WITH &&)` para estados que no sean borrador, cerrada o cancelada.
     - Error de empalme traducido a mensaje claro con la campaña con la que choca.
+    - Columna `notas` (texto, NULL) en `campanas` (§9), editable en la pantalla 12; D8 la copia al clonar.
     - Lista con filtro por estado y pastillas; vista de línea de tiempo.
 
 - [ ] **K2 · Crear, editar, programar y clonar**

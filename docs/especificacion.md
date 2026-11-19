@@ -302,7 +302,7 @@ extra_componentes(id, extra_id, articulo_id NULL, concepto, tipo, cantidad, mont
 -- Campañas
 campanas(id, nombre, tipo, presupuesto, inicio NULL, fin NULL,
          estado ENUM('borrador','programada','cerrada','cancelada'),
-         pct_reinversion, inventario_sobrante, clonada_de_id NULL, cerrada_en NULL)
+         pct_reinversion, notas NULL, inventario_sobrante, clonada_de_id NULL, cerrada_en NULL)
 campana_items(id, campana_id, producto_id NULL, variante_id NULL, tamano_id NULL,
          costo_campana, origen_costo ENUM('catalogo','compra','manual'),
          precio_especial NULL, motivo_precio NULL, requiere_revision, activo)
