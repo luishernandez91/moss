@@ -75,3 +75,15 @@ export function parsePesos(text: string): Cents | null {
 export function pesosText(amount: Cents | number): string {
   return (amount / 100).toFixed(2);
 }
+
+/** `1 nov – 24 dic 2026`; con años distintos, ambos completos. Un borrador puede no tener fechas. */
+export function formatDateRange(start: string | null, end: string | null): string {
+  if (start === null && end === null) return 'Sin fechas';
+  if (end === null) return `Desde ${formatDate(start!)}`;
+  if (start === null) return `Hasta ${formatDate(end)}`;
+  if (start === end) return formatDate(start);
+  const from = formatDate(start);
+  const to = formatDate(end);
+  const sameYear = start.slice(0, 4) === end.slice(0, 4);
+  return `${sameYear ? from.replace(/ \d{4}$/, '') : from} – ${to}`;
+}

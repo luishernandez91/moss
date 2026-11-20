@@ -72,7 +72,7 @@ pnpm db:seed            # carga docs/datos/catalogo-ejemplo.json (se implementa 
 3. **Snapshots.** Producción y venta guardan costo unitario, precio de lista, precio aplicado y origen del precio en el momento del registro. Nunca recalcules el pasado a partir del catálogo actual.
 4. **No contar dos veces.** El resultado de una campaña sale de gastos y ventas reales. El costo de receta sirve para precios y comparación, nunca se suma al resultado.
 5. **Estados de campaña.** Se persisten solo `draft`, `scheduled`, `closed`, `cancelled`. `active` y `closing` se derivan de las fechas con la zona `America/Mexico_City`. Una campaña `closed` o `cancelled` es de solo lectura en dominio, API y UI.
-6. **Empalme.** Restricción `EXCLUDE USING gist` sobre `daterange(start_date, end_date, '[]')` por tipo de campaña, para estados `scheduled` y cerrables. Además, validación en dominio para dar un mensaje claro.
+6. **Empalme.** Restricción `EXCLUDE USING gist` sobre `daterange(start_date, end_date, '[]')` por tipo de campaña, para estados `scheduled` y cerrables, salvo los tipos que permiten empalme (evento: `allows_overlap`). Además, validación en dominio para dar un mensaje claro.
 7. **Fechas.** Fechas de negocio como `date` (sin hora). Timestamps en UTC. "Hoy" siempre se calcula en `America/Mexico_City`, con una función de dominio que recibe el reloj inyectado.
 
 ## Glosario (español en UI y docs, inglés en código)

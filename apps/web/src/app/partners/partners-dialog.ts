@@ -6,6 +6,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import type { Partner, UpdatePartners } from '@moss/contracts';
+import { campaignStatusLabels } from '@moss/contracts';
 import {
   PARTNER_NAME_MAX,
   PartnerError,
@@ -14,6 +15,7 @@ import {
 } from '@moss/domain';
 import { apiErrorMessage } from '../core/api-error';
 import { PartnersApi } from './partners-api';
+import { CampaignsApi } from '../campaigns/campaigns-api';
 
 @Component({
   selector: 'app-partners-dialog',
@@ -60,6 +62,22 @@ import { PartnersApi } from './partners-api';
           El cambio aplicará al cierre de todas las campañas que aún no estén cerradas. Los cierres
           ya registrados no cambian.
         </p>
+        <section class="affected" aria-label="Campañas que aún no se cierran">
+          @if (affected.error()) {
+            <p class="error" role="alert">
+              No se pudieron cargar las campañas afectadas. El cambio aplica igual a todas las que
+              aún no se cierran.
+            </p>
+          } @else if (affected.hasValue() && affected.value().length === 0) {
+            <p>No hay campañas sin cerrar.</p>
+          } @else {
+            <ul>
+              @for (campaign of affected.value(); track campaign.id) {
+                <li>{{ campaign.name }} · {{ statusLabels[campaign.status] }}</li>
+              }
+            </ul>
+          }
+        </section>
         @if (validation().error) {
           <p class="error" role="alert">{{ validation().error }}</p>
         }
@@ -130,6 +148,9 @@ export class PartnersDialog {
   private readonly initial = inject<Partner[]>(MAT_DIALOG_DATA);
   private readonly api = inject(PartnersApi);
   private readonly ref = inject<MatDialogRef<PartnersDialog>>(MatDialogRef);
+  /** K1: campañas no cerradas a las que aplicará el cambio, por nombre y estado. */
+  protected readonly affected = inject(CampaignsApi).awaitingClose();
+  protected readonly statusLabels = campaignStatusLabels;
   protected readonly current = signal(this.initial);
   private readonly model = signal({
     firstName: this.initial[0]!.name,

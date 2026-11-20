@@ -4,7 +4,7 @@ import { Shell } from './core/shell/shell';
 import { NAV_ITEMS } from './core/navigation';
 
 /** Pantallas con historia implementada; el resto muestra la página provisional. */
-const IMPLEMENTED = ['inicio', 'tipos-de-articulo', 'catalogo', 'socios'];
+const IMPLEMENTED = ['inicio', 'tipos-de-articulo', 'catalogo', 'socios', 'campanas'];
 
 const pendingRoutes: Routes = NAV_ITEMS.filter((item) => !IMPLEMENTED.includes(item.path)).map(
   (item) => ({
@@ -27,6 +27,11 @@ export const routes: Routes = [
     canActivateChild: [authGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'inicio' },
+      {
+        path: 'campanas',
+        title: 'Campañas · Moss & Roots',
+        loadComponent: () => import('./campaigns/campaigns-page').then((m) => m.CampaignsPage),
+      },
       {
         path: 'inicio',
         title: 'Dashboard · Moss & Roots',
