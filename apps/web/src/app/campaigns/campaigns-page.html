@@ -1,0 +1,154 @@
+<section class="page">
+  <header class="header">
+    <div>
+      <h1>Campañas</h1>
+      @if (isDesktop()) {
+        <p class="subtitle">Cada gasto y cada venta pertenece a una campaña.</p>
+      }
+    </div>
+    @if (isDesktop()) {
+      <div class="view-toggle" role="group" aria-label="Vista">
+        <button
+          type="button"
+          [class.selected]="view() === 'list'"
+          [attr.aria-pressed]="view() === 'list'"
+          (click)="view.set('list')"
+        >
+          Lista
+        </button>
+        <button
+          type="button"
+          [class.selected]="view() === 'timeline'"
+          [attr.aria-pressed]="view() === 'timeline'"
+          (click)="view.set('timeline')"
+        >
+          Línea de tiempo
+        </button>
+      </div>
+    }
+  </header>
+
+  <div class="status-chips" role="group" aria-label="Estado">
+    <button
+      type="button"
+      class="chip"
+      [class.selected]="status() === null"
+      [attr.aria-pressed]="status() === null"
+      (click)="status.set(null)"
+    >
+      <span class="dot all" aria-hidden="true"></span>Todas
+    </button>
+    @for (value of statuses; track value) {
+      <button
+        type="button"
+        class="chip"
+        [class.selected]="status() === value"
+        [attr.aria-pressed]="status() === value"
+        (click)="status.set(value)"
+      >
+        <span class="dot" [class]="'dot ' + value" aria-hidden="true"></span>{{ labels[value] }}
+      </button>
+    }
+  </div>
+
+  @if (loadError()) {
+    <p class="error" role="alert">{{ loadError() }}</p>
+  } @else if (campaigns.hasValue() && campaigns.value().length === 0) {
+    <div class="empty card">
+      <p>{{ status() === null ? 'Aún no hay campañas.' : 'No hay campañas con este estado.' }}</p>
+    </div>
+  } @else {
+    @if (isDesktop() && view() === 'timeline' && months().length > 0) {
+      <section class="timeline card" aria-label="Línea de tiempo">
+        <div class="timeline-grid">
+          <span></span>
+          <div
+            class="timeline-months"
+            [style.grid-template-columns]="'repeat(' + months().length + ', 1fr)'"
+          >
+            @for (month of months(); track month.key) {
+              <span>{{ month.label }}</span>
+            }
+          </div>
+          @for (row of rows(); track row.type.id) {
+            <span class="timeline-row-label">{{ row.type.name }}</span>
+            <div class="timeline-track" [style.height.px]="row.lanes.length * 36">
+              @for (lane of row.lanes; track $index; let laneIndex = $index) {
+                @for (campaign of lane; track campaign.id) {
+                  <span
+                    class="timeline-bar"
+                    [class]="'timeline-bar ' + campaign.status"
+                    [style.left]="bar(campaign).left"
+                    [style.width]="bar(campaign).width"
+                    [style.top.px]="laneIndex * 36 + 3"
+                    [attr.title]="
+                      campaign.name + ' · ' + formatDateRange(campaign.startDate, campaign.endDate)
+                    "
+                  >
+                    {{ campaign.name }}
+                  </span>
+                }
+              }
+            </div>
+          }
+        </div>
+        <p class="note">Campañas del mismo tipo no se empalman, excepto eventos.</p>
+      </section>
+    }
+
+    <ul class="cards">
+      @for (campaign of campaigns.value(); track campaign.id) {
+        <li class="campaign-card card">
+          <div class="card-header">
+            <h2>{{ campaign.name }}</h2>
+            <span class="pill status" [class]="'pill status ' + campaign.status"
+              ><span class="dot" [class]="'dot ' + campaign.status" aria-hidden="true"></span
+              >{{ labels[campaign.status] }}</span
+            >
+          </div>
+          <p class="meta">
+            <span class="pill">{{ campaign.type.name }}</span>
+            {{ formatDateRange(campaign.startDate, campaign.endDate) }}
+          </p>
+          <p class="budget">Presupuesto {{ formatMoney(campaign.budget) }}</p>
+          <dl class="numbers">
+            <div>
+              <dt>Gastado</dt>
+              <dd>—</dd>
+            </div>
+            <div>
+              <dt>Vendido</dt>
+              <dd>—</dd>
+            </div>
+            <div>
+              <dt>Resultado</dt>
+              <dd>—</dd>
+            </div>
+          </dl>
+        </li>
+      }
+    </ul>
+
+    @if (!isDesktop() && groups().length > 0) {
+      <section class="mobile-timeline" aria-labelledby="timeline-title">
+        <h2 id="timeline-title">Línea de tiempo</h2>
+        <dl class="card">
+          @for (group of groups(); track group.key) {
+            <div class="month-group">
+              <dt>{{ group.short }}</dt>
+              <dd>
+                @for (campaign of group.campaigns; track campaign.id) {
+                  <span class="month-item"
+                    ><span class="dot" [class]="'dot ' + campaign.status" aria-hidden="true"></span
+                    >{{ campaign.name }}</span
+                  >
+                }
+              </dd>
+            </div>
+          }
+        </dl>
+        <p class="note">Campañas del mismo tipo no se empalman, excepto eventos.</p>
+      </section>
+    }
+  }
+</section>

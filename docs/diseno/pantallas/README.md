@@ -54,6 +54,10 @@ Componentes compartidos en `componentes/`: `menu-lateral.png` (navegación deskt
 | 04 | Sin filtro global de tamaño | C3 agrega selector; los desactivados solo aparecen si están en uso |
 | 05 | Solo columnas de atributos | C3 agrega Tamaño como primera columna (primer dato en tarjeta móvil) si el tipo lo usa; selector condicional en diálogos |
 | 24 | Acceso a Tamaños, sin diseño de su editor | C3 usa `/configuracion/tamanos`: lista ordenada con nombre, estado, uso y botones Subir/Bajar/Editar/Desactivar/Borrar; filas apiladas en móvil. Configuración abre esta sección hasta S2; el resto sigue pendiente |
+| 11 | Gastado, Vendido, Resultado y barra de % de presupuesto con cifras | «—» y sin barra: no hay gastos (K4) ni ventas (K6). Sin cifras de ejemplo |
+| 11 | Botón «+ Nueva campaña» y menú ⋮ en cada tarjeta | Llegan con K2 (crear, editar, programar, cancelar, clonar) |
+| 11 | Nota «Campañas del mismo tipo no se empalman» | «…, excepto eventos»: el tipo evento permite empalme; los eventos empalmados van en carriles separados |
+| 11 (mobile) | Botón «+» en el encabezado | Llega con K2 |
 | 24 | Tarjeta «Tipos de campaña» con el interruptor «No permitir empalme dentro del mismo tipo» | El empalme siempre se impide dentro del mismo tipo y no es configurable (§7, pantalla 24): la interfaz no lleva ese interruptor |
 | 22 | Importes y campañas de ejemplo; texto «Trabajo» abreviado en móvil | S1 muestra montos sin datos y estado vacío hasta K7; usa «Trabajo pagado» explícito y navegación MVP. Comparación: [revisión S1](../revisiones/S1/README.md) |
 

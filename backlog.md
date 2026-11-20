@@ -193,12 +193,14 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
 
 ## Fase 1 · MVP: campañas y operación
 
-- [ ] **K1 · Campañas: modelo y lista**
+- [x] **K1 · Campañas: modelo y lista**
   - Depende: D4, D5, E0.5
-  - Spec: pantalla 11, §5
+  - Spec: pantalla 11, §5, §8 reglas 6 y 11, §9
   - Criterios:
     - El editor de participación (S1) lista por nombre y estado las campañas no cerradas afectadas.
-    - Tabla con restricción `EXCLUDE USING gist (type WITH =, daterange(start_date, end_date, '[]') WITH &&)` para estados que no sean borrador, cerrada o cancelada.
+    - Tabla `campaign_types` (Temporada sin empalme, Evento con empalme) sembrada en la migración, sin interfaz hasta S2.
+    - Tabla con restricción `EXCLUDE USING gist (campaign_type_id WITH =, daterange(start_date, end_date, '[]') WITH &&) WHERE (status = 'scheduled' AND NOT allows_overlap)`; `allows_overlap` copiado del tipo con FK compuesta.
+    - API mínima sin interfaz: crear borrador y programar; programar escribe su evento en `campaign_events` en la misma transacción.
     - Error de empalme traducido a mensaje claro con la campaña con la que choca.
     - Columna `notas` (texto, NULL) en `campanas` (§9), editable en la pantalla 12; D8 la copia al clonar.
     - Lista con filtro por estado y pastillas; vista de línea de tiempo.
@@ -210,7 +212,8 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Asistente de 3 pasos; guardar como borrador sin fechas.
     - Paso 2 copia items del catálogo con costo vigente y origen "catalogo".
     - Clonar desde cerradas o canceladas.
-    - Bitácora `campana_eventos` en cada transición.
+    - Bitácora `campana_eventos` en cada transición (la tabla y el evento de programar ya existen desde K1).
+    - Botón «Nueva campaña» y menú de acciones de las tarjetas de la pantalla 11 (K1 no los muestra).
 
 - [ ] **K3 · Detalle de campaña**
   - Depende: K2
@@ -250,7 +253,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
   - Depende: K4, K5, K6, D6, D7, S1
   - Spec: pantalla 17
   - Criterios:
-    - Captura de inventario sobrante; producto de temporada en $0.
+    - Captura de inventario sobrante; producto de temporada en $0. Agrega `campaigns.leftover_inventory` (centavos, valuado a costo), que K1 dejó fuera.
     - Cascada y tabla por socio de D7; un total negativo se muestra como "Debe aportar". Trabajo devengado, pagado e impago separados; el impago no genera deuda ni se arrastra.
     - Guardar una copia fija (snapshot) de todo el resultado del cierre y mostrarla sin recalcular. La nueva regla de D7 aplica desde su decisión; preservar cierres ya liquidados.
     - Consumir las aportaciones registradas en K4 para el cálculo de D7; K7 no captura ni registra aportaciones.

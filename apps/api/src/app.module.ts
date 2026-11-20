@@ -8,9 +8,18 @@ import { HealthModule } from './health/health.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { PartnersModule } from './partners/partners.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
+import { CampaignsModule } from './campaigns/campaigns.module.js';
 
 @Module({
-  imports: [ConfigModule, DatabaseModule, HealthModule, AuthModule, CatalogModule, PartnersModule],
+  imports: [
+    ConfigModule,
+    DatabaseModule,
+    HealthModule,
+    AuthModule,
+    CatalogModule,
+    PartnersModule,
+    CampaignsModule,
+  ],
   providers: [
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
     { provide: APP_PIPE, useFactory: createValidationPipe },

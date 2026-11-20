@@ -14,8 +14,9 @@ test('abre el dashboard y navega a Campañas', async ({ page, isMobile }) => {
 
   const nav = page.getByRole('navigation', { name: 'Navegación principal' });
   await nav.getByRole('link', { name: 'Campañas' }).click();
-  await expect(page.getByRole('heading', { name: 'Campañas' })).toBeVisible();
-  await expect(page.getByText('historia K1')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Campañas', level: 1 })).toBeVisible();
+  // K1 ya implementa la pantalla 11: se ve su filtro por estado, no la página provisional.
+  await expect(page.getByRole('group', { name: 'Estado' })).toBeVisible();
 
   if (isMobile) {
     await nav.getByRole('link', { name: 'Más' }).click();
