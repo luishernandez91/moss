@@ -27,6 +27,7 @@ const campaign = (overrides: Partial<OverlapCampaign> = {}): OverlapCampaign => 
 const candidate = (overrides: Partial<OverlapCandidate> = {}): OverlapCandidate => ({
   id: null,
   type: 'temporada',
+  allowsOverlap: false,
   startDate: d('2026-12-01'),
   endDate: d('2026-12-15'),
   ...overrides,
@@ -319,6 +320,39 @@ describe('assertNoCampaignOverlap', () => {
   it('candidata sin fecha fin → el error de D4, no OVERLAP', () => {
     expectStateError(
       () => assertNoCampaignOverlap(candidate({ endDate: null }), [campaign()]),
+      'MISSING_DATES',
+    );
+  });
+});
+
+describe('tipos que permiten empalme (evento)', () => {
+  const evento = (overrides: Partial<OverlapCampaign> = {}) =>
+    campaign({ id: 'evento-1', name: 'Boda Ruiz', type: 'evento', ...overrides });
+
+  it('dos eventos con fechas empalmadas no chocan', () => {
+    expect(
+      findCampaignOverlaps(candidate({ type: 'evento', allowsOverlap: true }), [evento()]),
+    ).toEqual([]);
+    expect(() =>
+      assertNoCampaignOverlap(candidate({ type: 'evento', allowsOverlap: true }), [evento()]),
+    ).not.toThrow();
+  });
+
+  it('dos temporadas empalmadas siguen chocando', () => {
+    expect(ids(findCampaignOverlaps(candidate(), [campaign()]))).toEqual(['nochebuena-2026']);
+  });
+
+  it('un evento y una temporada en las mismas fechas no chocan', () => {
+    expect(
+      findCampaignOverlaps(candidate({ type: 'evento', allowsOverlap: true }), [campaign()]),
+    ).toEqual([]);
+    expect(findCampaignOverlaps(candidate(), [evento()])).toEqual([]);
+  });
+
+  it('aunque el tipo permita empalme, las fechas de la candidata se validan (D4)', () => {
+    expectStateError(
+      () =>
+        findCampaignOverlaps(candidate({ type: 'evento', allowsOverlap: true, endDate: null }), []),
       'MISSING_DATES',
     );
   });
