@@ -4,6 +4,11 @@ import { randomUUID } from 'node:crypto';
 process.env['E2E_AUTH_EMAIL'] ??= 'e2e-partner-1@example.test';
 process.env['E2E_AUTH_PASSWORD'] ??= randomUUID();
 
+// Puertos de las pruebas: configurables para correr varios worktrees a la vez (3100 y 4300 por defecto).
+const apiPort = process.env['E2E_API_PORT'] ?? '3100';
+const webPort = process.env['E2E_WEB_PORT'] ?? '4300';
+process.env['E2E_API_PORT'] = apiPort;
+
 export default defineConfig({
   testDir: './e2e',
   globalSetup: './e2e/setup.ts',
@@ -12,7 +17,7 @@ export default defineConfig({
   retries: process.env['CI'] ? 1 : 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:4300',
+    baseURL: `http://localhost:${webPort}`,
     trace: 'on-first-retry',
   },
   projects: [
@@ -47,9 +52,9 @@ export default defineConfig({
   webServer: [
     {
       command: 'node ../api/dist/main.js',
-      url: 'http://localhost:3100/api/health',
+      url: `http://localhost:${apiPort}/api/health`,
       env: {
-        API_PORT: '3100',
+        API_PORT: apiPort,
         NODE_ENV: 'test',
         SESSION_SECRET: 'playwright-only-secret-not-for-production',
         ...(process.env['DATABASE_URL_TEST']
@@ -58,8 +63,8 @@ export default defineConfig({
       },
     },
     {
-      command: 'pnpm ng serve --port 4300 --proxy-config proxy.e2e.conf.json',
-      url: 'http://localhost:4300',
+      command: `pnpm ng serve --port ${webPort} --proxy-config proxy.e2e.conf.mjs`,
+      url: `http://localhost:${webPort}`,
       timeout: 120_000,
     },
   ],
