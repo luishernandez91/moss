@@ -255,7 +255,7 @@ export const campaigns = pgTable(
   ],
 );
 
-/** Bitácora (§8 regla 11). `payload` lleva motivo y quién lo hizo. */
+/** Bitácora (§8 regla 11): usuario, fecha y motivo en columnas propias; `payload` lleva el socio. */
 export const campaignEvents = pgTable(
   'campaign_events',
   {
@@ -267,9 +267,11 @@ export const campaignEvents = pgTable(
     type: campaignEventType().notNull(),
     fromStatus: campaignStatus('from_status').notNull(),
     toStatus: campaignStatus('to_status').notNull(),
-    payload: jsonb()
-      .$type<{ reason: string | null; userId: string; partnerId: string }>()
-      .notNull(),
+    actorUserId: uuid('actor_user_id')
+      .notNull()
+      .references(() => users.id),
+    reason: text(),
+    payload: jsonb().$type<{ partnerId: string }>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index('campaign_events_campaign_idx').on(table.campaignId, table.createdAt)],

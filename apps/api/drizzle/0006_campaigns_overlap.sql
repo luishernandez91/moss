@@ -13,3 +13,22 @@ INSERT INTO "campaign_types" ("name", "allows_overlap") VALUES
   ('Temporada', false),
   ('Evento', true)
 ON CONFLICT DO NOTHING;
+--> statement-breakpoint
+
+-- Solo se elimina un borrador (§5, D4 `assertCanDelete`). La bitácora se borra en cascada con la
+-- campaña, así que la base impide borrar cualquier otra campaña, también por SQL directo
+-- (AGENTS.md: nunca borrar datos de campañas cerradas).
+CREATE FUNCTION "campaigns_only_drafts_deletable"() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD."status" <> 'draft' THEN
+    RAISE EXCEPTION 'Solo se puede eliminar una campaña en borrador (estado: %).', OLD."status"
+      USING ERRCODE = 'restrict_violation';
+  END IF;
+  RETURN OLD;
+END;
+$$;--> statement-breakpoint
+
+CREATE TRIGGER "campaigns_only_drafts_deletable"
+  BEFORE DELETE ON "campaigns"
+  FOR EACH ROW EXECUTE FUNCTION "campaigns_only_drafts_deletable"();

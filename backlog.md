@@ -266,6 +266,7 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
   - Depende: C3
   - Spec: pantalla 24
   - Criterios: categorías de gasto, tipos de campaña, participación por defecto (50/50; reutiliza `partners.share_bps` y el editor de S1), % reinversión por defecto (0%), margen mínimo, % anticipo mínimo, días de gracia.
+  - Tipos de campaña: cambiar `allows_overlap` de un tipo propaga el valor a sus campañas por la FK compuesta `ON UPDATE CASCADE` (K1). Si el tipo deja de permitir empalme y tiene campañas programadas empalmadas, el EXCLUDE rechaza el cambio con 23P01: S2 debe traducirlo a 409 con un mensaje que nombre las campañas en conflicto.
 
 - [ ] **S3 · Dashboard**
   - Depende: K3
