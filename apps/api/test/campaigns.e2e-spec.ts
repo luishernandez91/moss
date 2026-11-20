@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { eq, inArray, like } from 'drizzle-orm';
+import { eq, inArray, like, sql } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import type { Campaign, CampaignType } from '@moss/contracts';
@@ -339,6 +339,46 @@ describe('campañas (PostgreSQL real)', () => {
     const loser = responses.find((response) => response.status === 409)!;
     expect(loser.body).toMatchObject({ code: 'OVERLAP' });
     expect([...(await eventsOf(a.id)), ...(await eventsOf(b.id))]).toHaveLength(1);
+  });
+
+  it('carrera real: si el dominio no ve la otra programación, el EXCLUDE (23P01) se traduce al mismo 409', async () => {
+    const a = await draft('Retenida A', season, { startDate: '2032-04-01', endDate: '2032-04-10' });
+    const b = await draft('Retenida B', season, { startDate: '2032-04-05', endDate: '2032-04-15' });
+    // Una transacción ajena programa A y no confirma: el dominio de B no la ve y su UPDATE espera.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let updated!: () => void;
+    const updatedA = new Promise<void>((resolve) => (updated = resolve));
+    const holder = db.transaction(async (tx) => {
+      await tx.update(campaigns).set({ status: 'scheduled' }).where(eq(campaigns.id, a.id));
+      updated();
+      await held;
+    });
+    await updatedA;
+    const pending = post(`/api/campaigns/${b.id}/schedule`).then((response) => response);
+    for (let i = 0; i < 100; i += 1) {
+      const result = await db.execute<{ waiting: number }>(
+        sql`SELECT count(*)::int AS waiting FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+      );
+      if (result.rows[0]!.waiting > 0) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    release();
+    await holder;
+    const response = await pending;
+    expect(response.status).toBe(409);
+    expect(response.body).toMatchObject({
+      code: 'OVERLAP',
+      details: { conflicts: [expect.objectContaining({ id: a.id, name: `${prefix} Retenida A` })] },
+    });
+    expect(await eventsOf(b.id)).toEqual([]);
+  });
+
+  it('eliminar un borrador se lleva su bitácora (ON DELETE CASCADE)', async () => {
+    const campaign = await scheduled('Con historia', season, '2033-01-01', '2033-01-02');
+    expect(await eventsOf(campaign.id)).toHaveLength(1);
+    await db.delete(campaigns).where(eq(campaigns.id, campaign.id));
+    expect(await eventsOf(campaign.id)).toEqual([]);
   });
 
   it('la lista deriva el estado con el reloj, filtra y ordena (pantalla 11)', async () => {

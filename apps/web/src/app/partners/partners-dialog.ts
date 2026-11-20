@@ -63,7 +63,12 @@ import { CampaignsApi } from '../campaigns/campaigns-api';
           ya registrados no cambian.
         </p>
         <section class="affected" aria-label="Campañas que aún no se cierran">
-          @if (affected.hasValue() && affected.value().length === 0) {
+          @if (affected.error()) {
+            <p class="error" role="alert">
+              No se pudieron cargar las campañas afectadas. El cambio aplica igual a todas las que
+              aún no se cierran.
+            </p>
+          } @else if (affected.hasValue() && affected.value().length === 0) {
             <p>No hay campañas sin cerrar.</p>
           } @else {
             <ul>

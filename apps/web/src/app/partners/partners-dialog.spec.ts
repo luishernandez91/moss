@@ -77,4 +77,21 @@ describe('PartnersDialog: campañas afectadas (K1)', () => {
     await fixture.whenStable();
     expect(element.textContent).toContain('No hay campañas sin cerrar.');
   });
+
+  it('si la carga falla, lo dice en lugar de mostrar una lista vacía', async () => {
+    const { fixture, http, element } = setup();
+    http
+      .expectOne((r) => r.url === '/api/campaigns')
+      .flush(
+        {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Ocurrió un error inesperado. Intenta de nuevo.',
+        },
+        { status: 500, statusText: 'Error' },
+      );
+    await fixture.whenStable();
+    expect(element.querySelector('.affected [role="alert"]')?.textContent).toContain(
+      'No se pudieron cargar las campañas afectadas',
+    );
+  });
 });
