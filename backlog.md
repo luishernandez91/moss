@@ -214,6 +214,8 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Clonar desde cerradas o canceladas.
     - Bitácora `campana_eventos` en cada transición (la tabla y el evento de programar ya existen desde K1).
     - Botón «Nueva campaña» y menú de acciones de las tarjetas de la pantalla 11 (K1 no los muestra).
+    - `campaigns.cloned_from_id`: cambiar la FK a `ON DELETE SET NULL` para que se pueda borrar un borrador que tiene clones, con prueba e2e.
+    - Limpieza de las e2e de campañas: evaluar `TRUNCATE ... CASCADE` en lugar de regresar las campañas a borrador antes de borrarlas. `TRUNCATE` no dispara los triggers de `DELETE`, así que la limpieza deja de depender de la regla de negocio. Actualizar la nota en `docs/patron-full-stack.md`.
 
 - [ ] **K3 · Detalle de campaña**
   - Depende: K2
