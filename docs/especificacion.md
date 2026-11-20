@@ -158,7 +158,7 @@ La campaña no se bloquea al pasar la fecha fin: queda "por cerrar" para registr
 - Paso 1: nombre, tipo, presupuesto, fechas y % de reinversión.
 - Paso 2: plantas y productos de la campaña, con costos copiados del catálogo y editables.
 - Paso 3: revisión, guardar como borrador o programar.
-- Validación de empalme entre campañas programadas, activas y por cerrar del mismo tipo; siempre activa. Para correr dos campañas a la vez se usan tipos distintos. Los borradores no se validan.
+- Validación de empalme entre campañas programadas, activas y por cerrar del mismo tipo; siempre activa, salvo en los tipos que permiten empalme (evento). Para correr dos campañas de temporada a la vez se usan tipos distintos. Los borradores no se validan.
 - Al clonar: copia nombre, tipo, presupuesto, % de reinversión, notas e items, con la opción de tomar costos de la original o del catálogo. No copia gastos, producciones, ventas, inventario sobrante ni fechas. Los precios especiales se copian marcados para revisión.
 
 **13. Detalle de campaña** · MVP
@@ -205,7 +205,7 @@ La campaña no se bloquea al pasar la fecha fin: queda "por cerrar" para registr
 
 ## 6. Pantallas: pedidos para eventos
 
-Cada pedido aceptado crea una campaña de tipo evento, con presupuesto igual a su costo estimado. Por eso el empalme se valida por tipo de campaña: un evento del 20 de diciembre coincide con la campaña de Nochebuena.
+Cada pedido aceptado crea una campaña de tipo evento, con presupuesto igual a su costo estimado. Por eso el empalme se valida por tipo de campaña: un evento del 20 de diciembre coincide con la campaña de Nochebuena. Además, el tipo evento permite empalme: dos pedidos pueden entregarse en fechas que coinciden.
 
 **18. Clientes** · Fase 2
 
@@ -254,7 +254,7 @@ Cada pedido aceptado crea una campaña de tipo evento, con presupuesto igual a s
 **24. Configuración** · MVP
 
 - Tamaños y categorías de gasto.
-- Tipos de campaña. El empalme siempre se impide dentro del mismo tipo; no es configurable.
+- Tipos de campaña, con la marca «permite empalme» de cada tipo (temporada no, evento sí). Sin interruptor global: el empalme depende del tipo.
 - Valores por defecto: participación en la ganancia (50/50), % de reinversión (0%, opcional por campaña), margen mínimo para el aviso (30%), % de anticipo mínimo (50%) y días de gracia para el cierre automático.
 - Usuarios y su socio.
 
@@ -265,7 +265,7 @@ Cada pedido aceptado crea una campaña de tipo evento, con presupuesto igual a s
 3. **Items de campaña.** Al crear la campaña se copian solo los artículos y productos elegidos, con el costo vigente. El catálogo sigue siendo la fuente principal; un item agregado después se copia en ese momento.
 4. **Compras reales.** Una compra registrada como gasto actualiza el costo del item de campaña y lo marca con origen "compra".
 5. **Precio especial.** Solo aplica mientras la campaña está activa o por cerrar. Se avisa si queda bajo el costo o bajo el margen mínimo.
-6. **Empalme.** Se fuerza en PostgreSQL con una restricción `EXCLUDE` sobre `daterange` por tipo de campaña, y se valida también en dominio para dar un mensaje claro.
+6. **Empalme.** Se fuerza en PostgreSQL con una restricción `EXCLUDE` sobre `daterange` por tipo de campaña, solo para los tipos que no permiten empalme (temporada sí se valida; evento no), y se valida también en dominio para dar un mensaje claro.
 7. **Inversión y reparto al cierre.** Capital del socio = gastos que pagó + aportaciones a caja. Caja neta = gastos pagados por caja − aportaciones totales; se recupera completa, incluso con pérdida, y si es negativa la caja devuelve el sobrante. Las aportaciones son financiación, no gastos, y no se cuentan dos veces. Tras recuperar caja neta y capital se paga el trabajo con el remanente, a prorrata del trabajo devengado si es insuficiente. El trabajo impago no genera deuda ni se arrastra a otras campañas. Si falta dinero para caja neta más capital, el trabajo pagado es cero y esa pérdida de capital se divide por participación (50/50 por defecto); un socio puede deber aportar. Solo si queda ganancia tras pagar todo el trabajo se aparta reinversión y se reparte el resto. Participaciones y reinversión se expresan en puntos base enteros seguros de 0 a 10000; participaciones suman exactamente 10000, con 5000 por socio y reinversión 0 por defecto. Resultado informativo = ventas − gastos − todo el trabajo devengado. El reparto siempre conserva totales de socios + total de caja = ventas. Esta regla sustituye el trabajo como costo para repartir pérdidas, aplica a cierres desde la decisión de D7 del 18 nov 2026 y no recalcula cierres ya liquidados: K7 debe guardar y consultar una copia fija (snapshot) del resultado del cierre.
 8. **Trabajo.** Fabricación de kokedama: $20 por pieza chica. El armado de extras se paga a $2.50 por minuto.
 9. **Inventario de temporada.** Al cerrar, el producto de temporada que sobra (nochebuena) se valúa en $0.
@@ -311,13 +311,20 @@ extras(id, nombre, precio_extra, minutos_armado)
 extra_componentes(id, extra_id, articulo_id NULL, concepto, tipo, cantidad, monto)
 
 -- Campañas
-campanas(id, nombre, tipo, presupuesto, inicio NULL, fin NULL,
+tipos_campana(id, nombre UNIQUE, permite_empalme)
+-- Sembrados: Temporada (permite_empalme = false) y Evento (true).
+campanas(id, nombre, tipo_campana_id, permite_empalme, presupuesto, inicio NULL, fin NULL,
          estado ENUM('borrador','programada','cerrada','cancelada'),
          pct_reinversion, notas NULL, inventario_sobrante, clonada_de_id NULL, cerrada_en NULL)
+-- permite_empalme es copia del tipo (FK compuesta a tipos_campana(id, permite_empalme), ON UPDATE
+-- CASCADE) para que la restricción EXCLUDE no consulte otra tabla. pct_reinversion se guarda en
+-- puntos base múltiplos de 100. inventario_sobrante llega con K7.
 campana_items(id, campana_id, producto_id NULL, variante_id NULL, tamano_id NULL,
          costo_campana, origen_costo ENUM('catalogo','compra','manual'),
          precio_especial NULL, motivo_precio NULL, requiere_revision, activo)
-campana_eventos(id, campana_id, accion, motivo, usuario_id, creado_en)
+campana_eventos(id, campana_id, tipo, estado_anterior, estado_nuevo, datos JSONB, creado_en)
+-- tipo: programar, regresar a borrador, cancelar, cerrar, reabrir. datos lleva motivo, usuario y
+-- socio (§8 regla 11). Se escribe en la misma transacción que el cambio de estado.
 gastos(id, campana_id, categoria, concepto, monto, pagado_por_socio_id, fecha, ticket NULL)
 producciones(id, campana_id, producto_id, tamano_id, extra_id NULL, variante_elegida JSONB NULL,
          cantidad, costo_unitario_snapshot, fabricado_por_socio_id, fecha)
@@ -355,7 +362,7 @@ En `campana_items`, `producto_id` y `variante_id` son excluyentes: exactamente u
 | `movimientos_inventario`, `tamanos` | `inventory_movements`, `sizes` |
 | `productos`, `producto_precios`, `componentes` | `products`, `product_prices`, `recipe_components` |
 | `extras`, `extra_componentes` | `add_ons`, `add_on_components` |
-| `campanas`, `campana_items`, `campana_eventos` | `campaigns`, `campaign_items`, `campaign_events` |
+| `tipos_campana`, `campanas`, `campana_items`, `campana_eventos` | `campaign_types`, `campaigns`, `campaign_items`, `campaign_events` |
 | `gastos`, `producciones`, `ventas`, `venta_items` | `expenses`, `production_runs`, `sales`, `sale_lines` |
 | `usuarios`, `socios` | `users`, `partners` |
 | `clientes`, `cotizaciones`, `cotizacion_items`, `pedidos`, `pedido_pagos` | `customers`, `quotes`, `quote_lines`, `orders`, `order_payments` |
@@ -391,4 +398,6 @@ Los valores que capturan los usuarios (nombres, opciones de lista, unidades) son
 | Ventas $100; gastos de caja $20; aportación de Luis $50; sin trabajo ni reinversión | Caja neta −$30; capital Luis $50; ganancia $80; Luis $90, otro $40, caja −$30; suma $100 |
 | Empalme: campaña nueva del 1 al 15 dic contra una programada del 10 al 31 dic, mismo tipo | Rechazada |
 | Empalme: mismo rango, tipos distintos (evento y temporada) | Aceptada |
+| Empalme: dos eventos con fechas que coinciden | Aceptada (el tipo evento permite empalme) |
+| Empalme: dos temporadas con fechas que coinciden | Rechazada |
 | Precio especial $50 sobre costo $53.10 | Aviso de margen negativo |

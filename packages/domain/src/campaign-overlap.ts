@@ -1,8 +1,9 @@
 /**
  * Empalme de campañas (especificación §5 pantalla 12, §6 y §8 regla 6; AGENTS.md, regla 6).
  * Misma semántica que la restricción de PostgreSQL de K1:
- * `EXCLUDE USING gist (type WITH =, daterange(start_date, end_date, '[]') WITH &&)` para el estado
- * guardado `scheduled`. Rangos cerrados con ambos extremos incluidos y sin reloj: programada, activa
+ * `EXCLUDE USING gist (campaign_type_id WITH =, daterange(start_date, end_date, '[]') WITH &&)
+ * WHERE (status = 'scheduled' AND NOT allows_overlap)`. Los tipos que permiten empalme (evento) no
+ * se validan. Rangos cerrados con ambos extremos incluidos y sin reloj: programada, activa
  * y por cerrar participan porque las tres se guardan como `scheduled`.
  */
 import { compareDates, type BusinessDate } from './business-date.js';
@@ -26,6 +27,8 @@ export interface OverlapCandidate {
   /** `null` si la campaña es nueva. Al editar, se excluye a sí misma por id. */
   id: string | null;
   type: CampaignType;
+  /** Propiedad del tipo (`campaign_types.allows_overlap`): evento sí, temporada no. */
+  allowsOverlap: boolean;
   startDate: BusinessDate | null;
   endDate: BusinessDate | null;
 }
@@ -69,8 +72,8 @@ export function rangesOverlap(
 
 /**
  * Valida las fechas de la candidata como programada (D4) y devuelve las campañas programadas del
- * mismo tipo con las que se empalma, ordenadas por inicio, fin, nombre e id. La regla no es
- * configurable. Una campaña participante con fechas inválidas lanza el error de D4: un dato roto
+ * mismo tipo con las que se empalma, ordenadas por inicio, fin, nombre e id. Si el tipo permite
+ * empalme, no hay conflictos (las fechas se validan igual). Una campaña participante con fechas inválidas lanza el error de D4: un dato roto
  * debe fallar visible.
  */
 export function findCampaignOverlaps(
@@ -78,6 +81,7 @@ export function findCampaignOverlaps(
   existing: readonly OverlapCampaign[],
 ): CampaignOverlapConflict[] {
   const { start, end } = scheduledDates(candidate);
+  if (candidate.allowsOverlap) return [];
   const conflicts: CampaignOverlapConflict[] = [];
   for (const other of existing) {
     if (other.status !== 'scheduled') continue;
