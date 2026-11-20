@@ -54,7 +54,8 @@ Componentes compartidos en `componentes/`: `menu-lateral.png` (navegación deskt
 | 11 | Botón «+ Nueva campaña» y menú ⋮ en cada tarjeta | Llegan con K2 (crear, editar, programar, cancelar, clonar) |
 | 11 | Nota «Campañas del mismo tipo no se empalman» | «…, excepto eventos»: el tipo evento permite empalme; los eventos empalmados van en carriles separados |
 | 11 (mobile) | Botón «+» en el encabezado | Llega con K2 |
-| 24 | Tarjeta «Tipos de campaña» con el interruptor «No permitir empalme dentro del mismo tipo» | El empalme siempre se impide dentro del mismo tipo y no es configurable (§7, pantalla 24): la interfaz no lleva ese interruptor |
+| 11 | «Día de Muertos» cerrada en la línea de tiempo (prompt de la pantalla) | La línea de tiempo muestra solo programadas, activas y por cerrar; las cerradas, canceladas y borradores aparecen en la lista |
+| 24 | Tarjeta «Tipos de campaña» con el interruptor «No permitir empalme dentro del mismo tipo» | Sin interruptor global: cada tipo tiene su marca «permite empalme» (temporada no, evento sí), según §7 pantalla 24 y la decisión «Empalme por tipo» |
 | 22 | Importes y campañas de ejemplo; texto «Trabajo» abreviado en móvil | S1 muestra montos sin datos y estado vacío hasta K7; usa «Trabajo pagado» explícito y navegación MVP. Comparación: [revisión S1](../revisiones/S1/README.md) |
 
 ## Unidad de existencia mal capturada (pantallas 4 y 5)

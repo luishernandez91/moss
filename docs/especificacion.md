@@ -324,7 +324,8 @@ campana_items(id, campana_id, producto_id NULL, variante_id NULL, tamano_id NULL
          precio_especial NULL, motivo_precio NULL, requiere_revision, activo)
 campana_eventos(id, campana_id, tipo, estado_anterior, estado_nuevo, datos JSONB, creado_en)
 -- tipo: programar, regresar a borrador, cancelar, cerrar, reabrir. datos lleva motivo, usuario y
--- socio (§8 regla 11). Se escribe en la misma transacción que el cambio de estado.
+-- socio (§8 regla 11). Se escribe en la misma transacción que el cambio de estado. Si se elimina
+-- un borrador (§5), sus eventos se eliminan con él (ON DELETE CASCADE).
 gastos(id, campana_id, categoria, concepto, monto, pagado_por_socio_id, fecha, ticket NULL)
 producciones(id, campana_id, producto_id, tamano_id, extra_id NULL, variante_elegida JSONB NULL,
          cantidad, costo_unitario_snapshot, fabricado_por_socio_id, fecha)
@@ -371,6 +372,9 @@ En `campana_items`, `producto_id` y `variante_id` son excluyentes: exactamente u
 | `unidad_existencia`: `pieza`, `m`, `kg`, `l`, `bulto` | `stock_unit`: `piece`, `m`, `kg`, `l`, `bag` |
 | `cambios_costo_variante.motivo`: `inicial`, `manual` | `reason`: `initial`, `manual` |
 | `estado` de campaña: `borrador`, `programada`, `cerrada`, `cancelada` | `status`: `draft`, `scheduled`, `closed`, `cancelled` |
+| `permite_empalme`, `pct_reinversion` (puntos base) | `allows_overlap`, `reinvestment_bps` |
+| `campana_eventos.tipo`: `programar`, `regresar a borrador`, `cancelar`, `cerrar`, `reabrir` | `type`: `schedule`, `unschedule`, `cancel`, `close`, `reopen` |
+| `campana_eventos`: `estado_anterior`, `estado_nuevo`, `datos` | `from_status`, `to_status`, `payload` |
 | `origen_costo`: `catalogo`, `compra`, `manual` | `cost_origin`: `catalog`, `purchase`, `manual` |
 | `origen_precio`: `general`, `lista`, `campana`, `manual` | `price_source`: `general`, `list`, `campaign`, `manual` |
 | `componentes.tipo`: `material`, `mano_obra` | `category`: `material`, `labor` |

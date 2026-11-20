@@ -38,7 +38,7 @@ CREATE TABLE "campaigns" (
 	CONSTRAINT "campaigns_dates_unless_draft" CHECK ("campaigns"."status" = 'draft' OR ("campaigns"."start_date" IS NOT NULL AND "campaigns"."end_date" IS NOT NULL AND "campaigns"."start_date" <= "campaigns"."end_date"))
 );
 --> statement-breakpoint
-ALTER TABLE "campaign_events" ADD CONSTRAINT "campaign_events_campaign_id_campaigns_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaigns"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "campaign_events" ADD CONSTRAINT "campaign_events_campaign_id_campaigns_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaigns"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "campaigns" ADD CONSTRAINT "campaigns_type_allows_overlap_fk" FOREIGN KEY ("campaign_type_id","allows_overlap") REFERENCES "public"."campaign_types"("id","allows_overlap") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "campaigns" ADD CONSTRAINT "campaigns_cloned_from_fk" FOREIGN KEY ("cloned_from_id") REFERENCES "public"."campaigns"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "campaign_events_campaign_idx" ON "campaign_events" USING btree ("campaign_id","created_at");--> statement-breakpoint

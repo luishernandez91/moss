@@ -262,7 +262,8 @@ export const campaignEvents = pgTable(
     id: uuid().primaryKey().defaultRandom(),
     campaignId: uuid('campaign_id')
       .notNull()
-      .references(() => campaigns.id, { onDelete: 'restrict' }),
+      // Un borrador se puede eliminar (§5) y se lleva su historial; las cerradas nunca se eliminan.
+      .references(() => campaigns.id, { onDelete: 'cascade' }),
     type: campaignEventType().notNull(),
     fromStatus: campaignStatus('from_status').notNull(),
     toStatus: campaignStatus('to_status').notNull(),
