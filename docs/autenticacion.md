@@ -33,6 +33,6 @@ En local, `TRUST_PROXY_HOPS=0`. Detrás de un proxy controlado, configura el nú
 
 ## Pruebas
 
-`pnpm test` ejecuta las pruebas unitarias, incluyendo scrypt real. Con PostgreSQL y migraciones aplicadas, `pnpm --filter api test:e2e` verifica login, guards, cookies y versiones. `pnpm e2e` construye API/paquetes y levanta servidores aislados en 3100 y 4300 para probar el flujo de acceso en escritorio y celular.
+`pnpm test` ejecuta las pruebas unitarias, incluyendo scrypt real. Con PostgreSQL y migraciones aplicadas, `pnpm --filter api test:e2e` verifica login, guards, cookies y versiones. `pnpm e2e` construye API/paquetes y levanta servidores aislados en 3100 y 4300 (configurables con `E2E_API_PORT` y `E2E_WEB_PORT`) para probar el flujo de acceso en escritorio y celular.
 
 Las pruebas reutilizan dos cuentas `@example.test` en una base dedicada (`*_test`, o la base efímera de CI). Las suites de API se ejecutan en serie y los proyectos Playwright de Socios ejecutan desktop antes de mobile. Cada prueba que edita socios restaura nombres y participaciones originales en `afterEach`, sin borrar socios ni retroceder versiones. Si defines `DATABASE_URL_TEST`, integración y navegador usan esa base (aplica antes las migraciones allí). Los secretos de prueba de CI y Playwright se usan solo en sus procesos; nunca son valores de despliegue.
