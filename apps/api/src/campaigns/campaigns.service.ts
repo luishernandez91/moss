@@ -175,7 +175,9 @@ export class CampaignsService {
           type: transition.event.action,
           fromStatus: row.status,
           toStatus: transition.status,
-          payload: { reason: transition.event.reason, ...actor },
+          actorUserId: actor.userId,
+          reason: transition.event.reason,
+          payload: { partnerId: actor.partnerId },
         });
         return this.one(tx, id);
       });

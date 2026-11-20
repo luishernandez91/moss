@@ -99,6 +99,8 @@ describe('campañas (PostgreSQL real)', () => {
       ).map((row) => row.id);
       if (ids.length > 0) {
         await db.delete(campaignEvents).where(inArray(campaignEvents.campaignId, ids));
+        // El trigger solo deja borrar borradores: se regresan a borrador antes de limpiar.
+        await db.update(campaigns).set({ status: 'draft' }).where(inArray(campaigns.id, ids));
         await db.delete(campaigns).where(inArray(campaigns.id, ids));
       }
       await db.delete(campaignTypes).where(like(campaignTypes.name, `${prefix}%`));
@@ -174,7 +176,9 @@ describe('campañas (PostgreSQL real)', () => {
         type: 'schedule',
         fromStatus: 'draft',
         toStatus: 'scheduled',
-        payload: { reason: 'listo', userId, partnerId },
+        actorUserId: userId,
+        reason: 'listo',
+        payload: { partnerId },
       }),
     ]);
     // Programar otra vez no está permitido y no agrega eventos.
@@ -374,11 +378,28 @@ describe('campañas (PostgreSQL real)', () => {
     expect(await eventsOf(b.id)).toEqual([]);
   });
 
-  it('eliminar un borrador se lleva su bitácora (ON DELETE CASCADE)', async () => {
+  it('borrar un borrador con historial elimina sus eventos (ON DELETE CASCADE)', async () => {
     const campaign = await scheduled('Con historia', season, '2033-01-01', '2033-01-02');
     expect(await eventsOf(campaign.id)).toHaveLength(1);
+    // Regresar a borrador llega con K2; aquí se simula con SQL directo.
+    await db.update(campaigns).set({ status: 'draft' }).where(eq(campaigns.id, campaign.id));
     await db.delete(campaigns).where(eq(campaigns.id, campaign.id));
     expect(await eventsOf(campaign.id)).toEqual([]);
+  });
+
+  it('borrar una campaña que no es borrador falla en la base (trigger) y conserva su historial', async () => {
+    const campaign = await scheduled('Protegida', season, '2034-01-01', '2034-01-02');
+    let caught: unknown;
+    try {
+      await db.delete(campaigns).where(eq(campaigns.id, campaign.id));
+    } catch (error) {
+      caught = error;
+    }
+    expect(postgresErrorCode(caught)).toBe('23001');
+    expect(String((caught as Error & { cause?: Error }).cause?.message)).toContain(
+      'Solo se puede eliminar una campaña en borrador',
+    );
+    expect(await eventsOf(campaign.id)).toHaveLength(1);
   });
 
   it('la lista deriva el estado con el reloj, filtra y ordena (pantalla 11)', async () => {

@@ -86,4 +86,4 @@ Después: compara las capturas con `docs/diseno/pantallas/NN-*` y registra las d
 - Reloj: un servicio que necesita «hoy» inyecta `CLOCK` (`apps/api/src/campaigns/clock.ts`, `systemClock` por defecto) y pasa el reloj al dominio. Las pruebas e2e lo fijan con `overrideProvider(CLOCK).useValue(...)`.
 - Restricciones que Drizzle no expresa (EXCLUDE, inserciones de datos fijos): migración personalizada con `drizzle-kit generate --custom --name <slug>` junto a la generada. Si hay que regenerar sobre `main`, recrea también la personalizada con el mismo SQL.
 - Worktrees en paralelo: base propia (`DATABASE_URL` / `DATABASE_URL_TEST`) y puertos propios (`API_PORT`, `WEB_PORT`, `E2E_API_PORT`, `E2E_WEB_PORT`). No corras `pnpm db:up` en otro worktree: Compose levantaría un segundo contenedor en el mismo puerto; usa el que ya existe.
-
+- Campañas en pruebas: un trigger solo deja borrar borradores. Para limpiar, regresa las campañas a `draft` (y borra su bitácora) antes de `DELETE`, como hace `apps/api/test/campaigns.e2e-spec.ts`.
