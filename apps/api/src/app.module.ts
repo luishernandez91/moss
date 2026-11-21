@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { PartnersModule } from './partners/partners.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { CampaignsModule } from './campaigns/campaigns.module.js';
+import { ProductsModule } from './products/products.module.js';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { CampaignsModule } from './campaigns/campaigns.module.js';
     CatalogModule,
     PartnersModule,
     CampaignsModule,
+    ProductsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: ApiExceptionFilter },

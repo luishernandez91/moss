@@ -56,8 +56,8 @@ export interface WriteGuards {
   unique?: ApiError | ((constraint: string | undefined) => ApiError);
   /** 23503/23001: referencia inválida o borrado RESTRICT; el registro padre se borró entre la validación y la escritura. */
   foreignKey?: () => HttpException;
-  /** Si se indica, solo traduce la FK con este nombre; las demás se propagan intactas. */
-  foreignKeyConstraint?: string;
+  /** Si se indica, solo traduce las FK con estos nombres; las demás se propagan intactas. */
+  foreignKeyConstraint?: string | readonly string[];
 }
 
 /**
@@ -79,10 +79,18 @@ export async function guardWrite<T>(action: () => Promise<T>, guards: WriteGuard
     if (
       (code === '23503' || code === '23001') &&
       guards.foreignKey &&
-      (guards.foreignKeyConstraint === undefined ||
-        postgresConstraint(error) === guards.foreignKeyConstraint)
+      matchesConstraint(guards.foreignKeyConstraint, postgresConstraint(error))
     )
       throw guards.foreignKey();
     throw error;
   }
+}
+
+function matchesConstraint(
+  expected: string | readonly string[] | undefined,
+  actual: string | undefined,
+): boolean {
+  if (expected === undefined) return true;
+  if (actual === undefined) return false;
+  return typeof expected === 'string' ? expected === actual : expected.includes(actual);
 }

@@ -6,7 +6,22 @@ import { DATABASE, type Database } from '../database/database.module.js';
 import { sizes } from '../database/schema.js';
 import { guardWrite, runDomainRule } from '../common/domain-errors.js';
 import { catalogWrite } from './catalog-write.js';
-const inUse = sql<boolean>`EXISTS (SELECT 1 FROM article_variants v WHERE v.size_id = "sizes"."id")`;
+/** Referencias a un tamaño, activas o no: variantes (C3) y oferta, precios y recetas de productos (C4). */
+const inUse = sql<boolean>`(
+  EXISTS (SELECT 1 FROM article_variants v WHERE v.size_id = "sizes"."id")
+  OR EXISTS (SELECT 1 FROM product_sizes ps WHERE ps.size_id = "sizes"."id")
+  OR EXISTS (SELECT 1 FROM product_prices pp WHERE pp.size_id = "sizes"."id")
+  OR EXISTS (SELECT 1 FROM recipe_component_values rv WHERE rv.size_id = "sizes"."id")
+  OR EXISTS (SELECT 1 FROM recipe_components rc WHERE rc.variant_size_id = "sizes"."id")
+)`;
+/** FK RESTRICT hacia `sizes`, por nombre: solo estas se traducen a `SIZE_IN_USE`. */
+export const SIZE_REFERENCE_CONSTRAINTS = [
+  'article_variants_size_id_sizes_id_fk',
+  'product_sizes_size_id_fk',
+  'product_prices_size_id_fk',
+  'recipe_component_values_size_id_fk',
+  'recipe_components_variant_size_id_fk',
+] as const;
 const missing = () =>
   new NotFoundException({ code: 'SIZE_NOT_FOUND', message: 'No se encontró el tamaño.' });
 @Injectable()
@@ -55,7 +70,7 @@ export class SizesService {
       if (!current) throw missing();
       runDomainRule(SizeError, () => assertSizeDeletion(current.inUse ? 1 : 0), 409);
       await guardWrite(() => tx.delete(sizes).where(eq(sizes.id, id)), {
-        foreignKeyConstraint: 'article_variants_size_id_sizes_id_fk',
+        foreignKeyConstraint: SIZE_REFERENCE_CONSTRAINTS,
         foreignKey: () =>
           new ConflictException({
             code: 'SIZE_IN_USE',

@@ -5,6 +5,7 @@ import {
   assertNewReferencesActive,
   assessProductCosts,
   effectiveSizeOffer,
+  persistedComponentKey,
   productCostDetail,
   ProductError,
   toCostProducts,
@@ -787,5 +788,23 @@ describe('assessProductCosts y productCostDetail', () => {
         minMarginPercent: 0,
       }),
     ).toThrow(CostResolutionError);
+  });
+});
+
+describe('persistedComponentKey', () => {
+  it('identifica el mismo componente con la clave de grupo de D2, sin importar su id ni sus valores', () => {
+    const fab = samplePersistedComponents.find(
+      (component): component is PersistedFixedComponent => component.id === 'k-fab',
+    )!;
+    const same: PersistedFixedComponent = {
+      ...fab,
+      id: 'otro-id',
+      values: [{ sizeId: null, amount: cents(1) }],
+    };
+    expect(persistedComponentKey(same)).toBe(persistedComponentKey(fab));
+    const keys = samplePersistedComponents
+      .filter((component) => component.productId === 'kokedama')
+      .map(persistedComponentKey);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });

@@ -171,6 +171,14 @@ export function toCostProducts(
   }));
 }
 
+/**
+ * Identidad de un componente guardado dentro de su producto: la clave de grupo de D2 (artículo,
+ * variante fija, tamaño de variante y filtro, o concepto). Única por producto (`DUPLICATE_COMPONENT`).
+ */
+export function persistedComponentKey(component: PersistedComponent): string {
+  return componentGroupKey(toCostComponent(component));
+}
+
 function perSize<T extends number>(
   values: readonly { sizeId: SizeId | null; value: T }[],
 ): PerSize<T> {

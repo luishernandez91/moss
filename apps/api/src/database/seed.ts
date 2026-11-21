@@ -1,10 +1,11 @@
 import { catalogWrite } from '../catalog/catalog-write.js';
 import { SizeError, assertSizeRequirement, assertSizeAssignment } from '@moss/domain';
 /**
- * `pnpm db:seed`: carga `docs/datos/catalogo-ejemplo.json` (tipos, atributos, artículos y variantes)
- * de forma idempotente. Solo crea lo que falta: nunca actualiza ni borra. Un choque con datos
- * existentes aborta la transacción completa y nombra el conflicto. Usa las reglas del dominio y los
- * esquemas de contracts. Productos, recetas y la traducción `{tamano}` → `{size}` llegan con C4.
+ * `pnpm db:seed`: carga `docs/datos/catalogo-ejemplo.json` (tipos, atributos, artículos, variantes,
+ * productos y recetas) de forma idempotente. Solo crea lo que falta: nunca actualiza ni borra. Un
+ * choque con datos existentes aborta la transacción completa y nombra el conflicto. Usa las reglas
+ * del dominio y los esquemas de contracts. C4 traduce `{tamano}` y los tamaños literales de las
+ * recetas a la dimensión `size_id` y el SKU de una variante fija a su ID.
  */
 import { and, eq, sql } from 'drizzle-orm';
 import {
@@ -35,14 +36,50 @@ import {
   variantCostChanges,
   sizes,
 } from './schema.js';
+// C4 · Productos y recetas.
+import { randomUUID } from 'node:crypto';
+import { inArray } from 'drizzle-orm';
+import {
+  ProductError,
+  assertNewReferencesActive,
+  persistedComponentKey,
+  validateProductCatalog,
+  type PersistedComponent,
+  type PersistedProduct,
+} from '@moss/domain';
+import { loadProductCatalog } from '../products/product-catalog.query.js';
+import {
+  productPrices,
+  productSizes,
+  products,
+  recipeComponentValues,
+  recipeComponents,
+} from './schema.js';
 
 type Database = NodePgDatabase<typeof schema>;
 type SpecValue = string | number | boolean | null;
 
 /** Forma del catálogo de ejemplo, con los nombres de la especificación. */
+type SpecPerSize = number | Record<string, number>;
+
 export interface SpecCatalog {
   productos?: {
-    componentes: { articulo_id?: string; filtro_atributos?: Record<string, SpecValue> }[];
+    id: string;
+    parent_id: string | null;
+    nombre: string;
+    tamanos?: string[];
+    componentes: {
+      id?: string;
+      articulo_id?: string;
+      variante_sku?: string;
+      filtro_atributos?: Record<string, SpecValue>;
+      concepto?: string;
+      tipo?: string;
+      cantidad?: SpecPerSize;
+      monto?: SpecPerSize;
+      sustituye_componente_id?: string;
+    }[];
+    precios?: Record<string, number> | null;
   }[];
   tipos_articulo: {
     id: string;
@@ -79,6 +116,8 @@ export interface SeedCounts {
   attributes: number;
   articles: number;
   variants: number;
+  products: number;
+  recipeComponents: number;
 }
 
 export interface SeedReport {
@@ -153,7 +192,8 @@ function rule<T>(context: string, action: () => T): T {
       error instanceof SizeError ||
       error instanceof ArticleTypeError ||
       error instanceof ArticleError ||
-      error instanceof AttributeUsageError
+      error instanceof AttributeUsageError ||
+      error instanceof ProductError
     ) {
       throw new SeedConflictError(`${context}: ${error.message}`);
     }
@@ -178,8 +218,17 @@ function values(
 }
 
 export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<SeedReport> {
-  const created: SeedCounts = { articleTypes: 0, attributes: 0, articles: 0, variants: 0 };
-  const existing: SeedCounts = { articleTypes: 0, attributes: 0, articles: 0, variants: 0 };
+  const zero = (): SeedCounts => ({
+    articleTypes: 0,
+    attributes: 0,
+    articles: 0,
+    variants: 0,
+    products: 0,
+    recipeComponents: 0,
+  });
+  const created = zero();
+  const existing = zero();
+  const articleIds = new Map<string, string>();
   const defaultedToPiece: string[] = [];
 
   const sizedTypes: string[] = [];
@@ -344,6 +393,7 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
         );
       }
       if (articleId) {
+        articleIds.set(specArticle.id, articleId);
         existing.articles += 1;
       } else {
         rule(context, () =>
@@ -368,6 +418,7 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
         created.articles += 1;
         if (specUnit == null) defaultedToPiece.push(specArticle.nombre.trim());
       }
+      articleIds.set(specArticle.id, articleId);
 
       const siblings = await tx
         .select({
@@ -438,7 +489,275 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
         created.variants += 1;
       }
     }
+
+    const productReport = await seedProducts(tx, catalog, articleIds, (value, context) => {
+      const size = resolveSize(value, context);
+      if (!size) throw new SeedConflictError(`${context}: falta el tamaño.`);
+      return size.id;
+    });
+    created.products = productReport.created.products;
+    created.recipeComponents = productReport.created.recipeComponents;
+    existing.products = productReport.existing.products;
+    existing.recipeComponents = productReport.existing.recipeComponents;
   });
 
   return { created, existing, defaultedToPiece, sizedTypes };
+}
+
+type SpecProduct = NonNullable<SpecCatalog['productos']>[number];
+type SpecComponent = SpecProduct['componentes'][number];
+
+/**
+ * C4: crea los productos que faltan, por nombre, con su oferta de tamaños, precios y receta. Un
+ * producto existente no se toca (si tiene otro padre, es un choque). `sustituye_componente_id` se
+ * resuelve con los componentes creados en esta corrida o, si el ancestro ya existía, con el
+ * componente que tiene la misma identidad de grupo (D2). Al final valida el catálogo completo.
+ */
+async function seedProducts(
+  tx: Database,
+  catalog: SpecCatalog,
+  articleIds: ReadonlyMap<string, string>,
+  sizeId: (value: SpecValue, context: string) => string,
+): Promise<{
+  created: Pick<SeedCounts, 'products' | 'recipeComponents'>;
+  existing: Pick<SeedCounts, 'products' | 'recipeComponents'>;
+}> {
+  const created = { products: 0, recipeComponents: 0 };
+  const existing = { products: 0, recipeComponents: 0 };
+  const specProducts = catalog.productos ?? [];
+  if (specProducts.length === 0) return { created, existing };
+
+  const loaded = await loadProductCatalog(tx, [...articleIds.values()]);
+  const productCatalog = {
+    ...loaded.catalog,
+    products: [...loaded.catalog.products],
+    components: [...loaded.catalog.components],
+  };
+  const productIds = new Map<string, string>();
+  const componentIds = new Map<string, string>();
+  const createdProducts: { product: PersistedProduct; components: PersistedComponent[] }[] = [];
+
+  const variantRows = await tx
+    .select({
+      id: articleVariants.id,
+      sku: articleVariants.sku,
+      articleId: articleVariants.articleId,
+    })
+    .from(articleVariants)
+    .where(inArray(articleVariants.articleId, [...articleIds.values()]));
+
+  // Padres antes que hijos, sin depender del orden del JSON.
+  const pending = [...specProducts];
+  while (pending.length > 0) {
+    const index = pending.findIndex(
+      (product) => product.parent_id === null || productIds.has(product.parent_id),
+    );
+    if (index === -1) {
+      throw new SeedConflictError(
+        `Producto «${pending[0]!.nombre}»: su padre «${pending[0]!.parent_id}» no está en el catálogo.`,
+      );
+    }
+    const [spec] = pending.splice(index, 1) as [SpecProduct];
+    const name = spec.nombre.trim();
+    const context = `Producto «${name}»`;
+    const parentId = spec.parent_id === null ? null : productIds.get(spec.parent_id)!;
+    const specComponents = spec.componentes.map((component, position) => ({
+      key: component.id ?? `${spec.id}-${position + 1}`,
+      component,
+    }));
+
+    const found = productCatalog.products.find(
+      (product) => product.name.toLocaleLowerCase('es-MX') === name.toLocaleLowerCase('es-MX'),
+    );
+    if (found) {
+      if (found.parentId !== parentId) {
+        throw new SeedConflictError(`${context}: ya existe con otro padre.`);
+      }
+      productIds.set(spec.id, found.id);
+      existing.products += 1;
+      existing.recipeComponents += specComponents.length;
+      // Identidad de los componentes ya guardados, para las sustituciones de productos nuevos.
+      const stored = productCatalog.components.filter(
+        (component) => component.productId === found.id,
+      );
+      for (const { key, component } of specComponents) {
+        const draft = toComponent(component, randomUUID(), found.id, context);
+        const match = stored.find(
+          (candidate) => persistedComponentKey(candidate) === persistedComponentKey(draft),
+        );
+        if (match) componentIds.set(key, match.id);
+      }
+      continue;
+    }
+
+    const id = randomUUID();
+    productIds.set(spec.id, id);
+    const product: PersistedProduct = {
+      id,
+      parentId,
+      name,
+      active: true,
+      sizeOffer: spec.tamanos
+        ? { mode: 'explicit', sizeIds: spec.tamanos.map((size) => sizeId(size, context)) }
+        : { mode: 'inherit' },
+      prices: Object.entries(spec.precios ?? {}).map(([size, price]) => ({
+        sizeId: sizeId(size, `${context}, precio`),
+        price: fromPesos(String(price)),
+      })),
+    };
+    const components = specComponents.map(({ key, component }) => {
+      const stored = toComponent(component, randomUUID(), id, `${context}, componente ${key}`);
+      componentIds.set(key, stored.id);
+      return { stored, replaces: component.sustituye_componente_id };
+    });
+    const persisted = components.map(({ stored, replaces }) => {
+      if (replaces === undefined) return stored;
+      const target = componentIds.get(replaces);
+      if (!target) {
+        throw new SeedConflictError(
+          `${context}: sustituye al componente «${replaces}», que no se encontró en sus ancestros.`,
+        );
+      }
+      return { ...stored, replacesComponentId: target };
+    });
+    productCatalog.products.push(product);
+    productCatalog.components.push(...persisted);
+    createdProducts.push({ product, components: persisted });
+    created.products += 1;
+    created.recipeComponents += persisted.length;
+  }
+
+  rule('Productos', () => {
+    validateProductCatalog(productCatalog);
+    for (const state of createdProducts) assertNewReferencesActive(null, state, productCatalog);
+  });
+
+  for (const { product } of createdProducts) {
+    await tx.insert(products).values({
+      id: product.id,
+      parentId: product.parentId,
+      name: product.name,
+      inheritsSizes: product.sizeOffer.mode === 'inherit',
+    });
+    if (product.sizeOffer.mode === 'explicit') {
+      await tx
+        .insert(productSizes)
+        .values(product.sizeOffer.sizeIds.map((size) => ({ productId: product.id, sizeId: size })));
+    }
+    if (product.prices.length > 0) {
+      await tx.insert(productPrices).values(
+        product.prices.map(({ sizeId: size, price }) => ({
+          productId: product.id,
+          sizeId: size,
+          price,
+        })),
+      );
+    }
+  }
+  // Los componentes van después de todos los productos: una sustitución apunta a otro producto.
+  for (const { product, components } of createdProducts) {
+    for (const [position, component] of components.entries()) {
+      await tx.insert(recipeComponents).values({
+        id: component.id,
+        productId: product.id,
+        position,
+        articleId: component.kind === 'article' ? component.articleId : null,
+        variantId: component.kind === 'article' ? component.variantId : null,
+        attributeFilter: component.kind === 'article' ? { ...component.attributeFilter } : {},
+        variantSizeProduced:
+          component.kind === 'article' && component.variantSize?.match === 'produced',
+        variantSizeId:
+          component.kind === 'article' && component.variantSize?.match === 'size'
+            ? component.variantSize.sizeId
+            : null,
+        concept: component.concept,
+        category: component.category,
+        replacesComponentId: component.replacesComponentId,
+      });
+      await tx.insert(recipeComponentValues).values(
+        component.kind === 'fixed'
+          ? component.values.map(({ sizeId: size, amount }) => ({
+              componentId: component.id,
+              sizeId: size,
+              amount,
+            }))
+          : component.values.map(({ sizeId: size, quantity }) => ({
+              componentId: component.id,
+              sizeId: size,
+              quantity,
+            })),
+      );
+    }
+  }
+  return { created, existing };
+
+  function toComponent(
+    spec: SpecComponent,
+    id: string,
+    productId: string,
+    context: string,
+  ): PersistedComponent {
+    const base = {
+      id,
+      productId,
+      category: spec.tipo === 'mano_obra' ? ('labor' as const) : ('material' as const),
+      replacesComponentId: null,
+    };
+    const perSize = <T>(raw: SpecPerSize, wrap: (value: number) => T) =>
+      typeof raw === 'number'
+        ? [{ sizeId: null, ...wrap(raw) }]
+        : Object.entries(raw).map(([size, value]) => ({
+            sizeId: sizeId(size, context),
+            ...wrap(value),
+          }));
+    if (spec.articulo_id === undefined) {
+      if (spec.monto === undefined || spec.concepto === undefined) {
+        throw new SeedConflictError(
+          `${context}: un componente sin artículo necesita concepto y monto.`,
+        );
+      }
+      return {
+        ...base,
+        kind: 'fixed',
+        concept: spec.concepto.trim(),
+        values: perSize(spec.monto, (amount) => ({ amount: fromPesos(String(amount)) })),
+      };
+    }
+    const articleId = articleIds.get(spec.articulo_id);
+    if (!articleId) {
+      throw new SeedConflictError(
+        `${context}: el artículo «${spec.articulo_id}» no está en el catálogo.`,
+      );
+    }
+    let variantId: string | null = null;
+    if (spec.variante_sku !== undefined) {
+      const sku = rule(context, () => normalizeSku(spec.variante_sku!));
+      const variant = variantRows.find((row) => row.sku === sku);
+      if (!variant || variant.articleId !== articleId) {
+        throw new SeedConflictError(
+          `${context}: la variante ${sku} no es de «${spec.articulo_id}».`,
+        );
+      }
+      variantId = variant.id;
+    }
+    const { tamano, ...filter } = withoutNulls(spec.filtro_atributos) as Record<
+      string,
+      string | number | boolean
+    >;
+    return {
+      ...base,
+      kind: 'article',
+      articleId,
+      variantId,
+      attributeFilter: filter,
+      variantSize:
+        tamano === undefined
+          ? null
+          : tamano === '{tamano}'
+            ? { match: 'produced' }
+            : { match: 'size', sizeId: sizeId(tamano, context) },
+      concept: spec.concepto?.trim() ?? null,
+      values: perSize(spec.cantidad ?? 1, (quantity) => ({ quantity })),
+    };
+  }
 }
