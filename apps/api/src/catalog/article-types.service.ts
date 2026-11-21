@@ -1,3 +1,5 @@
+import { catalogWrite } from './catalog-write.js';
+import { SizeError, assertUsesSizeChange } from '@moss/domain';
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, ne, sql } from 'drizzle-orm';
 import {
@@ -52,7 +54,12 @@ export class ArticleTypesService {
 
   async list(): Promise<ArticleType[]> {
     const types = await this.db
-      .select({ id: articleTypes.id, name: articleTypes.name })
+      .select({
+        id: articleTypes.id,
+        name: articleTypes.name,
+        usesSize: articleTypes.usesSize,
+        articleCount: sql<number>`(SELECT count(*)::int FROM articles a WHERE a.article_type_id = "article_types"."id")`,
+      })
       .from(articleTypes)
       .orderBy(sql`lower(${articleTypes.name})`, asc(articleTypes.id));
     const rows = await this.db
@@ -66,43 +73,65 @@ export class ArticleTypesService {
     return types.map((type) => ({ ...type, attributes: byType.get(type.id) ?? [] }));
   }
 
-  async createType(name: string): Promise<ArticleType> {
+  async createType(name: string, usesSize = false): Promise<ArticleType> {
     const existing = await this.db
-      .select({ id: articleTypes.id, name: articleTypes.name })
+      .select({
+        id: articleTypes.id,
+        name: articleTypes.name,
+        usesSize: articleTypes.usesSize,
+        articleCount: sql<number>`(SELECT count(*)::int FROM articles a WHERE a.article_type_id = "article_types"."id")`,
+      })
       .from(articleTypes);
     const validName = runDomainRule(ArticleTypeError, () =>
       validateArticleTypeName(name, existing),
     );
     const [created] = await guardWrite(
       () =>
-        this.db
-          .insert(articleTypes)
-          .values({ name: validName })
-          .returning({ id: articleTypes.id, name: articleTypes.name }),
+        this.db.insert(articleTypes).values({ name: validName, usesSize }).returning({
+          id: articleTypes.id,
+          name: articleTypes.name,
+          usesSize: articleTypes.usesSize,
+        }),
       { unique: duplicateType },
     );
-    return { ...created!, attributes: [] };
+    return { ...created!, articleCount: 0, attributes: [] };
   }
 
-  async renameType(id: string, name: string): Promise<Omit<ArticleType, 'attributes'>> {
-    await this.assertTypeExists(id);
-    const existing = await this.db
-      .select({ id: articleTypes.id, name: articleTypes.name })
-      .from(articleTypes);
-    const validName = runDomainRule(ArticleTypeError, () =>
-      validateArticleTypeName(name, existing, id),
-    );
-    const [updated] = await guardWrite(
-      () =>
-        this.db
-          .update(articleTypes)
-          .set({ name: validName })
-          .where(eq(articleTypes.id, id))
-          .returning({ id: articleTypes.id, name: articleTypes.name }),
-      { unique: duplicateType },
-    );
-    if (!updated) throw typeNotFound();
-    return updated;
+  async renameType(
+    id: string,
+    name: string | undefined,
+    usesSize?: boolean,
+  ): Promise<Omit<ArticleType, 'attributes'>> {
+    return catalogWrite(this.db, async (tx) => {
+      const existing = await new ArticleTypesService(tx).list();
+      const current = existing.find((t) => t.id === id);
+      if (!current) throw typeNotFound();
+      const nextUsesSize = usesSize ?? current.usesSize;
+      runDomainRule(
+        SizeError,
+        () => assertUsesSizeChange(current.usesSize, nextUsesSize, current.articleCount),
+        409,
+      );
+      const validName = runDomainRule(ArticleTypeError, () =>
+        validateArticleTypeName(name ?? current.name, existing, id),
+      );
+      const [updated] = await guardWrite(
+        () =>
+          tx
+            .update(articleTypes)
+            .set({ name: validName, usesSize: nextUsesSize })
+            .where(eq(articleTypes.id, id))
+            .returning(),
+        { unique: duplicateType },
+      );
+      if (!updated) throw typeNotFound();
+      return {
+        id: updated.id,
+        name: updated.name,
+        usesSize: updated.usesSize,
+        articleCount: current.articleCount,
+      };
+    });
   }
 
   /** Borra el tipo y sus atributos, solo si no tiene artículos (activos o no). */

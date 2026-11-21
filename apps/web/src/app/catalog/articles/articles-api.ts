@@ -16,6 +16,7 @@ const BASE = '/api/articles';
 
 /** Filtros de la pantalla 4, ya en la forma de los parámetros de la API. */
 export interface ArticleFilters {
+  sizeId: string | null;
   typeId: string | null;
   q: string;
   inStock: boolean;
@@ -32,9 +33,10 @@ export class ArticlesApi {
   list(filters: Signal<ArticleFilters>) {
     return httpResource<ArticleSummary[]>(
       () => {
-        const { typeId, q, inStock, includeInactive, attr } = filters();
+        const { typeId, sizeId, q, inStock, includeInactive, attr } = filters();
         const params: Record<string, string | string[]> = {};
         if (typeId) params['typeId'] = typeId;
+        if (sizeId) params['sizeId'] = sizeId;
         if (q.trim()) params['q'] = q.trim();
         if (inStock) params['inStock'] = 'true';
         if (includeInactive) params['includeInactive'] = 'true';

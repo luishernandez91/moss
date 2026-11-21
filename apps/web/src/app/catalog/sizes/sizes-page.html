@@ -1,0 +1,79 @@
+<section class="page">
+  <p class="eyebrow">Configuración</p>
+  <header>
+    <div>
+      <h1>Tamaños</h1>
+      <p>Orden y nombres para artículos y productos.</p>
+    </div>
+    <button mat-flat-button (click)="edit()"><mat-icon>add</mat-icon>Nuevo tamaño</button>
+  </header>
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+  @if (sizes.error()) {
+    <p class="error" role="alert">{{ apiErrorMessage(sizes.error()) }}</p>
+    <button mat-button (click)="sizes.reload()">Reintentar</button>
+  }
+  @if (sizes.isLoading()) {
+    <p role="status">Cargando tamaños…</p>
+  }
+  <ol class="sizes">
+    @for (size of sizes.value(); track size.id; let i = $index) {
+      <li [class.inactive]="!size.active">
+        <div class="identity">
+          <span class="position">{{ i + 1 }}</span>
+          <div>
+            <strong class="size-name">{{ size.label }}</strong>
+            <div class="status">
+              {{ size.active ? 'Activo' : 'Desactivado' }} · {{ size.inUse ? 'En uso' : 'Sin uso' }}
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button
+            mat-icon-button
+            [attr.aria-label]="'Subir ' + size.label"
+            [disabled]="busy() || sizes.isLoading() || i === 0"
+            (click)="move(i, -1)"
+          >
+            <mat-icon>arrow_upward</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            [attr.aria-label]="'Bajar ' + size.label"
+            [disabled]="busy() || sizes.isLoading() || i === sizes.value().length - 1"
+            (click)="move(i, 1)"
+          >
+            <mat-icon>arrow_downward</mat-icon>
+          </button>
+          <button mat-icon-button [attr.aria-label]="'Editar ' + size.label" (click)="edit(size)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            [attr.aria-label]="(size.active ? 'Desactivar ' : 'Reactivar ') + size.label"
+            [disabled]="busy()"
+            (click)="toggle(size)"
+          >
+            <mat-icon>{{ size.active ? 'visibility_off' : 'restore' }}</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            [attr.aria-label]="'Borrar ' + size.label"
+            [disabled]="busy()"
+            (click)="remove(size)"
+          >
+            <mat-icon>delete_outline</mat-icon>
+          </button>
+        </div>
+      </li>
+    } @empty {
+      @if (!sizes.isLoading() && !sizes.error()) {
+        <li>Aún no hay tamaños. Crea el primero.</li>
+      }
+    }
+  </ol>
+  <p class="hint">
+    Los tamaños desactivados conservan sus referencias. Usa las flechas para cambiar el orden.
+  </p>
+</section>

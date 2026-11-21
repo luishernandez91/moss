@@ -7,6 +7,8 @@ import { of } from 'rxjs';
 import { ArticleTypesPage } from './article-types-page';
 
 const maceta: ArticleType = {
+  usesSize: false,
+  articleCount: 0,
   id: '00000000-0000-4000-8000-000000000001',
   name: 'Maceta',
   attributes: [
@@ -46,6 +48,8 @@ const maceta: ArticleType = {
   ],
 };
 const planta: ArticleType = {
+  usesSize: false,
+  articleCount: 0,
   id: '00000000-0000-4000-8000-000000000002',
   name: 'Planta',
   attributes: [],

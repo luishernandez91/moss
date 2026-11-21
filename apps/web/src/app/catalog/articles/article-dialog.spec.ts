@@ -6,6 +6,8 @@ import type { ArticleType } from '@moss/contracts';
 import { ArticleDialog } from './article-dialog';
 
 const maceta: ArticleType = {
+  usesSize: false,
+  articleCount: 0,
   id: '00000000-0000-4000-8000-000000000001',
   name: 'Maceta',
   attributes: [],
@@ -30,6 +32,7 @@ describe('ArticleDialog', () => {
         option.textContent?.trim(),
       );
     expect(options()).toEqual(['Elige un tipo']);
+    TestBed.inject(HttpTestingController).expectOne('/api/sizes').flush([]);
     TestBed.inject(HttpTestingController).expectOne('/api/article-types').flush([maceta]);
     await fixture.whenStable();
     expect(options()).toEqual(['Elige un tipo', 'Maceta']);

@@ -11,7 +11,10 @@ const uuid = '0a8f8d5e-3c7b-4a35-9b6a-1f7d2d0f5c11';
 
 describe('contratos de tipos de artículo', () => {
   it('recorta el nombre del tipo y exige texto', () => {
-    expect(createArticleTypeSchema.parse({ name: '  Maceta ' })).toEqual({ name: 'Maceta' });
+    expect(createArticleTypeSchema.parse({ name: '  Maceta ' })).toEqual({
+      name: 'Maceta',
+      usesSize: false,
+    });
     expect(createArticleTypeSchema.safeParse({ name: '   ' }).success).toBe(false);
     expect(createArticleTypeSchema.safeParse({ name: 'Maceta', extra: 1 }).success).toBe(false);
   });

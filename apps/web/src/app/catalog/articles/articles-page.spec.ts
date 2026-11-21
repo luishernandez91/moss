@@ -8,6 +8,8 @@ import { of } from 'rxjs';
 import { ArticlesPage } from './articles-page';
 
 const maceta: ArticleType = {
+  usesSize: false,
+  articleCount: 0,
   id: '00000000-0000-4000-8000-000000000001',
   name: 'Maceta',
   attributes: [
@@ -28,7 +30,7 @@ const rows: ArticleSummary[] = [
   {
     id: '00000000-0000-4000-8000-0000000000a1',
     name: 'Maceta de concreto',
-    articleType: { id: maceta.id, name: 'Maceta' },
+    articleType: { usesSize: false, id: maceta.id, name: 'Maceta' },
     stockUnit: 'piece',
     sold: true,
     usedInRecipes: true,
@@ -40,7 +42,7 @@ const rows: ArticleSummary[] = [
   {
     id: '00000000-0000-4000-8000-0000000000a2',
     name: 'Hilo de cáñamo',
-    articleType: { id: '00000000-0000-4000-8000-000000000002', name: 'Material' },
+    articleType: { usesSize: false, id: '00000000-0000-4000-8000-000000000002', name: 'Material' },
     stockUnit: 'm',
     sold: false,
     usedInRecipes: true,
@@ -67,6 +69,7 @@ async function setup(desktop: boolean) {
   const fixture = TestBed.createComponent(ArticlesPage);
   TestBed.tick();
   const http = TestBed.inject(HttpTestingController);
+  http.expectOne('/api/sizes?purpose=filter').flush([]);
   http.expectOne('/api/article-types').flush([maceta]);
   const element = fixture.nativeElement as HTMLElement;
   return { fixture, http, element };

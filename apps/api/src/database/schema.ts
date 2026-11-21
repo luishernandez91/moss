@@ -16,6 +16,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -48,11 +49,24 @@ export const partners = pgTable(
 // C1 · Tipos de artículo y atributos. Los valores de atributo (JSONB) llegan con C2.
 export const attributeDataType = pgEnum('attribute_data_type', ATTRIBUTE_DATA_TYPES);
 
+export const sizes = pgTable(
+  'sizes',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    key: text().notNull().unique(),
+    label: text().notNull(),
+    sortOrder: integer('sort_order').notNull(),
+    active: boolean().notNull().default(true),
+  },
+  (table) => [check('sizes_order_nonnegative', sql`${table.sortOrder} >= 0`)],
+);
+
 export const articleTypes = pgTable(
   'article_types',
   {
     id: uuid().primaryKey().defaultRandom(),
     name: text().notNull(),
+    usesSize: boolean('uses_size').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex('article_types_name_unique').on(sql`lower(${table.name})`)],
@@ -135,6 +149,7 @@ export const articleVariants = pgTable(
     articleId: uuid('article_id')
       .notNull()
       .references(() => articles.id, { onDelete: 'restrict' }),
+    sizeId: uuid('size_id').references(() => sizes.id, { onDelete: 'restrict' }),
     /** Normalizado en mayúsculas por el dominio; único en todo el catálogo, activo o no. */
     sku: text().notNull().unique(),
     attributes: jsonb().$type<Record<string, string | number | boolean>>().notNull().default({}),
@@ -148,7 +163,9 @@ export const articleVariants = pgTable(
       .default(sql`clock_timestamp()`),
   },
   (table) => [
-    uniqueIndex('article_variants_combination_unique').on(table.articleId, table.attributes),
+    unique('article_variants_combination_unique')
+      .on(table.articleId, table.sizeId, table.attributes)
+      .nullsNotDistinct(),
     index('article_variants_attributes_idx').using('gin', sql`${table.attributes} jsonb_path_ops`),
     check('article_variants_cost_non_negative', sql`${table.averageCost} >= 0`),
     check(

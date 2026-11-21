@@ -49,6 +49,7 @@
           <div class="attributes-header">
             <div>
               <h2 id="attributes-title">Atributos de {{ type.name }}</h2>
+              <p>{{ type.usesSize ? 'Usa tamaño' : 'Sin tamaño' }}</p>
               @if (isDesktop()) {
                 <p class="subtitle">
                   Los atributos que definen variante generan un SKU por combinación.

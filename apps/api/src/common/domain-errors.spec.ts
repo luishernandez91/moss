@@ -70,6 +70,15 @@ describe('guardWrite', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('traduce un borrado RESTRICT (23001) a SIZE_IN_USE', async () => {
+    const conflict = { code: 'SIZE_IN_USE', message: 'El tamaño está en uso.' };
+    await expect(
+      guardWrite(() => Promise.reject(new DrizzleQueryError('delete', [], pgError('23001'))), {
+        foreignKey: () => new ConflictException(conflict),
+      }),
+    ).rejects.toMatchObject({ response: conflict });
+  });
+
   it('propaga los códigos sin traducción y devuelve el resultado', async () => {
     await expect(
       guardWrite(() => Promise.reject(pgError('23503')), { unique: duplicate }),
