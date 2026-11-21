@@ -24,7 +24,7 @@ Los usuarios son dos personas, casi siempre desde el celular. La prioridad es qu
 | Web | Angular 22: standalone, zoneless, signals, Signal Forms, `OnPush` por defecto, `@Service()`, `httpResource` |
 | UI | Angular Material + CDK, tema propio con tokens |
 | API | NestJS 12 en ESM, validación con esquemas Zod (opción `schema` de Standard Schema en `@Body`, `@Query`, `@Param`) |
-| Base de datos | PostgreSQL 18, Drizzle ORM y Drizzle Kit para migraciones |
+| Base de datos | PostgreSQL 18 (mínimo 15 por `NULLS NOT DISTINCT`), Drizzle ORM y Drizzle Kit para migraciones |
 | Pruebas | Vitest (unitarias e integración), Playwright (e2e) |
 | Lint y formato | oxlint, Prettier |
 
@@ -58,12 +58,14 @@ pnpm lint               # oxlint
 pnpm typecheck          # tsc --noEmit en todos los paquetes
 pnpm format             # Prettier
 pnpm db:generate        # genera migración desde src/database/schema.ts
-pnpm db:seed            # carga docs/datos/catalogo-ejemplo.json (se implementa en C2)
+pnpm db:seed            # carga artículos/variantes y size_id; recetas llegan en C4
 ```
 
 `packages/domain` y `packages/contracts` se consumen compilados (`dist/`). Los scripts raíz los compilan antes; si corres un comando dentro de una app y no ve un cambio de un paquete, corre `pnpm build:packages`.
 
 **Antes de dar una tarea por terminada:** `pnpm typecheck && pnpm lint && pnpm test` sin errores. Si tocaste pantallas, también `pnpm e2e` para el flujo afectado.
+
+C3 requiere recrear la base local anterior; no convierte datos de C2. Procedimiento: `docs/tamanos.md`. Docker y CI fijan PostgreSQL 18; la migración C3 rechaza versiones menores a 15.
 
 ## Reglas de dominio que no se negocian
 

@@ -1,3 +1,4 @@
+import { SizesApi } from '../sizes/sizes-api';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -103,6 +104,8 @@ export type ArticleDialogData =
             <h3>Primera variante</h3>
             <app-variant-fields
               [definitions]="type.attributes"
+              [usesSize]="type.usesSize"
+              [sizes]="sizes.value()"
               [unit]="stockUnit()"
               [(draft)]="variant"
               [errors]="variantErrors()"
@@ -153,6 +156,7 @@ export type ArticleDialogData =
 })
 export class ArticleDialog {
   protected readonly data = inject<ArticleDialogData>(MAT_DIALOG_DATA);
+  protected readonly sizes = inject(SizesApi).list();
   private readonly api = inject(ArticlesApi);
   private readonly ref = inject<MatDialogRef<ArticleDialog, string>>(MatDialogRef);
   /** Lista viva: si el diálogo se abre antes de que lleguen los tipos, se llena al llegar. */
@@ -203,7 +207,7 @@ export class ArticleDialog {
     };
     let action: () => Promise<{ id: string }>;
     if (this.data.mode === 'create') {
-      const variant = readVariantDraft(type.attributes, this.variant());
+      const variant = readVariantDraft(type.attributes, this.variant(), type.usesSize);
       this.variantErrors.set(variant.errors ?? {});
       this.variantAttributeErrors.set(variant.variant ? {} : variant.attributeErrors);
       if (!fixed.values || !variant.variant) return;

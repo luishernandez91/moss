@@ -1,3 +1,4 @@
+import { assertSizeRequirement, SizeError } from '@moss/domain';
 import type { AttributeDefinitionForValues, CreateVariant } from '@moss/contracts';
 import { parsePesos } from '../../core/format';
 import { validateAttributeValues } from './attribute-fields';
@@ -7,10 +8,17 @@ import type { VariantDraft } from './variant-fields';
 export function readVariantDraft(
   definitions: readonly AttributeDefinitionForValues[],
   draft: VariantDraft,
+  usesSize = false,
 ):
   | { variant: CreateVariant; errors: null }
   | { variant: null; errors: Record<string, string>; attributeErrors: Record<string, string> } {
   const errors: Record<string, string> = {};
+  try {
+    assertSizeRequirement(usesSize, draft.sizeId);
+  } catch (e) {
+    if (e instanceof SizeError) errors['sizeId'] = e.message;
+    else throw e;
+  }
   if (draft.sku.trim() === '') errors['sku'] = 'Escribe el SKU.';
   const averageCost = parsePesos(draft.averageCost);
   if (averageCost === null || averageCost < 0)
@@ -29,6 +37,7 @@ export function readVariantDraft(
   }
   return {
     variant: {
+      sizeId: draft.sizeId,
       sku: draft.sku,
       attributes: attributes.values,
       averageCost: averageCost!,

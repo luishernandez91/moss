@@ -1,3 +1,5 @@
+import { catalogWrite } from '../catalog/catalog-write.js';
+import { SizeError, assertSizeRequirement, assertSizeAssignment } from '@moss/domain';
 /**
  * `pnpm db:seed`: carga `docs/datos/catalogo-ejemplo.json` (tipos, atributos, artículos y variantes)
  * de forma idempotente. Solo crea lo que falta: nunca actualiza ni borra. Un choque con datos
@@ -31,6 +33,7 @@ import {
   articles,
   attributes,
   variantCostChanges,
+  sizes,
 } from './schema.js';
 
 type Database = NodePgDatabase<typeof schema>;
@@ -38,6 +41,9 @@ type SpecValue = string | number | boolean | null;
 
 /** Forma del catálogo de ejemplo, con los nombres de la especificación. */
 export interface SpecCatalog {
+  productos?: {
+    componentes: { articulo_id?: string; filtro_atributos?: Record<string, SpecValue> }[];
+  }[];
   tipos_articulo: {
     id: string;
     nombre: string;
@@ -80,6 +86,7 @@ export interface SeedReport {
   existing: SeedCounts;
   /** Artículos creados en piezas porque el catálogo no les da `unidad_consumo`. */
   defaultedToPiece: string[];
+  sizedTypes: string[];
 }
 
 /** Choque con datos existentes o con las reglas: la transacción se revierte completa. */
@@ -143,6 +150,7 @@ function rule<T>(context: string, action: () => T): T {
     return action();
   } catch (error) {
     if (
+      error instanceof SizeError ||
       error instanceof ArticleTypeError ||
       error instanceof ArticleError ||
       error instanceof AttributeUsageError
@@ -174,23 +182,61 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
   const existing: SeedCounts = { articleTypes: 0, attributes: 0, articles: 0, variants: 0 };
   const defaultedToPiece: string[] = [];
 
-  await db.transaction(async (tx) => {
+  const sizedTypes: string[] = [];
+  await catalogWrite(db, async (tx) => {
+    const sizeRows = await tx.select().from(sizes);
+    const sizeKeys: Record<string, string> = {
+      mini: 'mini',
+      chico: 'small',
+      mediano: 'medium',
+      grande: 'large',
+    };
+    const recipeArticleIds = new Set(
+      (catalog.productos ?? []).flatMap((p) =>
+        p.componentes
+          .filter((c) => c.filtro_atributos?.['tamano'] != null)
+          .map((c) => c.articulo_id),
+      ),
+    );
+    const sizedTypeIds = new Set(
+      catalog.articulos
+        .filter(
+          (a) =>
+            recipeArticleIds.has(a.id) || a.variantes.some((v) => v.atributos['tamano'] != null),
+        )
+        .map((a) => a.tipo),
+    );
+    for (const t of catalog.tipos_articulo)
+      if (t.atributos.some((a) => a.nombre === 'tamano')) sizedTypeIds.add(t.id);
+    const resolveSize = (value: SpecValue | undefined, context: string) => {
+      if (value == null) return null;
+      const size = sizeRows.find((s) => s.key === sizeKeys[String(value)]);
+      if (!size) throw new SeedConflictError(`${context}: tamaño desconocido «${value}».`);
+      return size;
+    };
+
     const typeIds = new Map<string, string>();
     const allTypes = await tx
-      .select({ id: articleTypes.id, name: articleTypes.name })
+      .select({ id: articleTypes.id, name: articleTypes.name, usesSize: articleTypes.usesSize })
       .from(articleTypes);
 
     for (const specType of catalog.tipos_articulo) {
       const match = allTypes.find(
         (type) => attributeKey(type.name) === attributeKey(specType.nombre),
       );
+      const usesSize = sizedTypeIds.has(specType.id);
+      if (usesSize) sizedTypes.push(specType.nombre);
+      if (match && match.usesSize !== usesSize)
+        throw new SeedConflictError(
+          `Tipo «${specType.nombre}»: uses_size no coincide. C3 requiere recrear la base local anterior.`,
+        );
       let typeId = match?.id;
       if (typeId) {
         existing.articleTypes += 1;
       } else {
         [{ id: typeId }] = (await tx
           .insert(articleTypes)
-          .values({ name: specType.nombre.trim() })
+          .values({ name: specType.nombre.trim(), usesSize })
           .returning({ id: articleTypes.id })) as [{ id: string }];
         created.articleTypes += 1;
       }
@@ -201,7 +247,7 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
         .from(attributes)
         .where(eq(attributes.articleTypeId, typeId));
       for (const specAttribute of specType.atributos) {
-        if (specAttribute.nombre === STOCK_UNIT_ATTRIBUTE) continue;
+        if ([STOCK_UNIT_ATTRIBUTE, 'tamano'].includes(specAttribute.nombre)) continue;
         const context = `Tipo «${specType.nombre}», atributo «${specAttribute.nombre}»`;
         const dataType = DATA_TYPES[specAttribute.tipo_dato];
         const found = current.find((attribute) => attribute.key === specAttribute.nombre);
@@ -327,6 +373,7 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
         .select({
           id: articleVariants.id,
           sku: articleVariants.sku,
+          sizeId: articleVariants.sizeId,
           attributes: articleVariants.attributes,
           active: articleVariants.active,
         })
@@ -334,25 +381,32 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
         .where(eq(articleVariants.articleId, articleId));
       for (const specVariant of specArticle.variantes) {
         const sku = rule(context, () => normalizeSku(specVariant.sku));
+        const { tamano, ...rawAttributes } = specVariant.atributos;
+        const size = resolveSize(tamano, `${context}, ${sku}`);
+        const sizeId = size?.id ?? null;
+        rule(context, () => assertSizeRequirement(sizedTypeIds.has(specArticle.tipo), sizeId));
         const [owner] = await tx
-          .select({ articleId: articleVariants.articleId })
+          .select({ articleId: articleVariants.articleId, sizeId: articleVariants.sizeId })
           .from(articleVariants)
           .where(eq(articleVariants.sku, sku));
         if (owner) {
           if (owner.articleId !== articleId) {
             throw new SeedConflictError(`${context}: el SKU ${sku} ya pertenece a otro artículo.`);
           }
+          if (owner.sizeId !== sizeId)
+            throw new SeedConflictError(`${context}: el SKU ${sku} tiene otro tamaño.`);
           existing.variants += 1;
           continue;
         }
+        if (size) rule(context, () => assertSizeAssignment(size, null));
         const variantContext = `${context}, variante ${sku}`;
         const variantAttributes = values(
           definitions,
           'variant',
-          withoutNulls(specVariant.atributos),
+          withoutNulls(rawAttributes),
           variantContext,
         );
-        const duplicate = findDuplicateCombination(variantAttributes, siblings);
+        const duplicate = findDuplicateCombination(variantAttributes, siblings, undefined, sizeId);
         if (duplicate) {
           throw new SeedConflictError(
             `${variantContext}: repite la combinación de ${duplicate.sku}.`,
@@ -363,6 +417,7 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
           .insert(articleVariants)
           .values({
             articleId,
+            sizeId,
             sku,
             attributes: variantAttributes,
             averageCost,
@@ -372,6 +427,7 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
           .returning({
             id: articleVariants.id,
             sku: articleVariants.sku,
+            sizeId: articleVariants.sizeId,
             attributes: articleVariants.attributes,
             active: articleVariants.active,
           });
@@ -384,5 +440,5 @@ export async function seedCatalog(db: Database, catalog: SpecCatalog): Promise<S
     }
   });
 
-  return { created, existing, defaultedToPiece };
+  return { created, existing, defaultedToPiece, sizedTypes };
 }

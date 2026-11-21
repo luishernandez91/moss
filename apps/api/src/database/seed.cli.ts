@@ -10,10 +10,11 @@ const catalogUrl = new URL('../../../../docs/datos/catalogo-ejemplo.json', impor
 const catalog = JSON.parse(readFileSync(catalogUrl, 'utf8')) as SpecCatalog;
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 try {
-  const { created, existing, defaultedToPiece } = await seedCatalog(
+  const { created, existing, defaultedToPiece, sizedTypes } = await seedCatalog(
     drizzle(pool, { schema }),
     catalog,
   );
+  console.log(`Tipos que usan tamaño: ${sizedTypes.join(', ') || 'ninguno'}.`);
   const line = (counts: typeof created) =>
     `${counts.articleTypes} tipos, ${counts.attributes} atributos, ${counts.articles} artículos, ${counts.variants} variantes`;
   console.log(`Creados: ${line(created)}.`);

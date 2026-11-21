@@ -50,6 +50,24 @@
         </button>
       }
     </div>
+    @if (!typeId() || selectedType()?.usesSize) {
+      <mat-form-field appearance="outline"
+        ><mat-label>Tamaño</mat-label>
+        <select
+          matNativeControl
+          aria-label="Tamaño"
+          [value]="sizeId() ?? ''"
+          (change)="sizeId.set($any($event.target).value || null)"
+        >
+          <option value="">Todos los tamaños</option>
+          @for (size of sizes.value(); track size.id) {
+            <option [value]="size.id">
+              {{ size.label }}{{ size.active ? '' : ' (desactivado)' }}
+            </option>
+          }
+        </select>
+      </mat-form-field>
+    }
     <div class="chips">
       @for (filter of attributeFilters(); track filter.key) {
         <span class="chip selected filter">

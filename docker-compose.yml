@@ -2,6 +2,7 @@ name: moss
 
 services:
   db:
+    # C3 requiere PostgreSQL >=15; fijamos la versión mayor 18.
     image: postgres:18-alpine
     restart: unless-stopped
     environment:

@@ -1,3 +1,4 @@
+import { SizesApi } from '../sizes/sizes-api';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -36,6 +37,9 @@ export interface VariantDialogData {
       <mat-dialog-content>
         <app-variant-fields
           [definitions]="data.type.attributes"
+          [usesSize]="data.type.usesSize"
+          [sizes]="sizes.value()"
+          [currentSizeId]="data.variant?.sizeId ?? null"
           [unit]="data.article.stockUnit"
           [(draft)]="draft"
           [errors]="errors()"
@@ -72,11 +76,13 @@ export interface VariantDialogData {
 })
 export class VariantDialog {
   protected readonly data = inject<VariantDialogData>(MAT_DIALOG_DATA);
+  protected readonly sizes = inject(SizesApi).list();
   private readonly api = inject(ArticlesApi);
   private readonly ref = inject<MatDialogRef<VariantDialog, boolean>>(MatDialogRef);
   protected readonly draft = signal<VariantDraft>(
     this.data.variant
       ? {
+          sizeId: this.data.variant.sizeId,
           sku: this.data.variant.sku,
           attributes: { ...this.data.variant.attributes },
           averageCost: pesosText(this.data.variant.averageCost),
@@ -94,7 +100,11 @@ export class VariantDialog {
   protected async save(event: Event): Promise<void> {
     event.preventDefault();
     if (this.busy()) return;
-    const result = readVariantDraft(this.data.type.attributes, this.draft());
+    const result = readVariantDraft(
+      this.data.type.attributes,
+      this.draft(),
+      this.data.type.usesSize,
+    );
     this.errors.set(result.errors ?? {});
     this.attributeErrors.set(result.variant ? {} : result.attributeErrors);
     if (!result.variant) return;

@@ -43,10 +43,18 @@ const options = z
   .min(1, 'Agrega al menos una opción.')
   .max(50, 'Usa como máximo 50 opciones.');
 
-export const createArticleTypeSchema = z.strictObject({ name: typeName });
+export const createArticleTypeSchema = z.strictObject({
+  name: typeName,
+  usesSize: z.boolean().default(false),
+});
 export type CreateArticleType = z.infer<typeof createArticleTypeSchema>;
-export const updateArticleTypeSchema = createArticleTypeSchema;
-export type UpdateArticleType = CreateArticleType;
+export const updateArticleTypeSchema = z
+  .strictObject({
+    name: typeName.optional(),
+    usesSize: z.boolean().optional(),
+  })
+  .refine((patch) => Object.keys(patch).length > 0, 'Indica al menos un cambio.');
+export type UpdateArticleType = z.infer<typeof updateArticleTypeSchema>;
 
 const attributeFlags = { name: attributeName, required: z.boolean(), definesVariant: z.boolean() };
 
@@ -93,6 +101,8 @@ export const attributeSchema = z.object({
 export type Attribute = z.infer<typeof attributeSchema>;
 
 export const articleTypeSchema = z.object({
+  usesSize: z.boolean(),
+  articleCount: z.number().int().nonnegative(),
   id: z.uuid(),
   name: z.string(),
   /** En orden de creación. */

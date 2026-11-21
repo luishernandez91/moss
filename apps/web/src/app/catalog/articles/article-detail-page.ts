@@ -1,3 +1,4 @@
+import { SizesApi } from '../sizes/sizes-api';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import type { ComponentType } from '@angular/cdk/portal';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
@@ -58,6 +59,11 @@ export class ArticleDetailPage {
   );
 
   protected readonly article = this.api.detail(this.id);
+  protected readonly sizes = inject(SizesApi).list();
+  protected sizeLabel(id: string | null): string {
+    const size = this.sizes.value().find((s) => s.id === id);
+    return size ? size.label + (size.active ? '' : ' (desactivado)') : '—';
+  }
   private readonly types = inject(ArticleTypesApi).types;
   protected readonly type = computed(() => {
     const article = this.article.value();
@@ -78,7 +84,7 @@ export class ArticleDetailPage {
     ),
   );
   private readonly chosenVariantId = signal<string | null>(null);
-  protected readonly selectedVariant = computed(() => {
+  protected readonly selectedVariant = computed<ArticleVariant | undefined>(() => {
     const variants = this.visibleVariants();
     return variants.find((variant) => variant.id === this.chosenVariantId()) ?? variants[0];
   });

@@ -10,20 +10,21 @@ jobs:
     runs-on: ubuntu-latest
     services:
       db:
+        # C3: mínimo 15 por NULLS NOT DISTINCT; misma versión mayor que Docker local.
         image: postgres:18-alpine
         env:
           POSTGRES_USER: moss
           POSTGRES_PASSWORD: moss
-          POSTGRES_DB: moss
+          POSTGRES_DB: moss_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U moss -d moss"
+          --health-cmd "pg_isready -U moss -d moss_test"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
     env:
-      DATABASE_URL: postgres://moss:moss@localhost:5432/moss
+      DATABASE_URL: postgres://moss:moss@localhost:5432/moss_test
       # Solo para la base efímera del job; no es una credencial de despliegue.
       SESSION_SECRET: ci-only-session-secret-not-for-production
       NODE_ENV: test
@@ -39,6 +40,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - name: PostgreSQL >=15
+        run: test "$(psql "$DATABASE_URL" -Atc 'SHOW server_version_num')" -ge 150000
       - run: pnpm db:migrate
       - run: pnpm --filter api test:e2e
       - run: pnpm --filter web exec playwright install --with-deps chromium

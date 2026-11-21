@@ -11,3 +11,5 @@ export * from './article-type.js';
 export * from './article.js';
 export * from './attribute-usage.js';
 export * from './partner.js';
+
+export * from './size.js';
