@@ -21,7 +21,7 @@ import {
 } from 'drizzle-orm/pg-core';
 // K1 · Campañas (importaciones aparte para no reordenar las existentes).
 import { PERSISTED_CAMPAIGN_STATUSES, type CampaignAction } from '@moss/domain';
-import { date, foreignKey, unique } from 'drizzle-orm/pg-core';
+import { date, foreignKey } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid().primaryKey().defaultRandom(),
@@ -199,7 +199,7 @@ export const variantCostChanges = pgTable(
 );
 
 // K1 · Campañas: modelo y lista. La restricción de empalme (EXCLUDE) y los tipos sembrados están en
-// la migración personalizada `0006_campaigns_overlap`: Drizzle no expresa EXCLUDE.
+// la migración personalizada `0007_campaigns_overlap`: Drizzle no expresa EXCLUDE.
 export const campaignStatus = pgEnum('campaign_status', PERSISTED_CAMPAIGN_STATUSES);
 export const campaignEventType = pgEnum('campaign_event_type', [
   'schedule',

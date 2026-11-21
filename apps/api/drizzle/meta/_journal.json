@@ -43,6 +43,20 @@
       "when": 1795206304626,
       "tag": "0005_sizes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795272218465,
+      "tag": "0006_campaigns",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795272218954,
+      "tag": "0007_campaigns_overlap",
+      "breakpoints": true
     }
   ]
 }
