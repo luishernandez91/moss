@@ -79,6 +79,22 @@ describe('guardWrite', () => {
     ).rejects.toMatchObject({ response: conflict });
   });
 
+  it('el 23001 del trigger de campañas (sin constraint) no se traduce a SIZE_IN_USE', async () => {
+    // Forma del error de `campaigns_only_drafts_deletable` (K1): RAISE ... restrict_violation, sin
+    // nombre de restricción. Solo la FK de tamaño debe traducirse a SIZE_IN_USE.
+    const trigger = Object.assign(
+      new Error('Solo se puede eliminar una campaña en borrador (estado: scheduled).'),
+      { code: '23001' },
+    );
+    const write = guardWrite(() => Promise.reject(new DrizzleQueryError('delete', [], trigger)), {
+      foreignKey: () =>
+        new ConflictException({ code: 'SIZE_IN_USE', message: 'El tamaño está en uso.' }),
+      foreignKeyConstraint: 'article_variants_size_id_sizes_id_fk',
+    });
+    await expect(write).rejects.toBeInstanceOf(DrizzleQueryError);
+    await expect(write).rejects.toMatchObject({ cause: { code: '23001' } });
+  });
+
   it('propaga los códigos sin traducción y devuelve el resultado', async () => {
     await expect(
       guardWrite(() => Promise.reject(pgError('23503')), { unique: duplicate }),

@@ -13,3 +13,4 @@ export * from './attribute-usage.js';
 export * from './partner.js';
 
 export * from './size.js';
+export * from './campaign-list.js';

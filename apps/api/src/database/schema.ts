@@ -19,6 +19,9 @@ import {
   unique,
   uuid,
 } from 'drizzle-orm/pg-core';
+// K1 · Campañas (importaciones aparte para no reordenar las existentes).
+import { PERSISTED_CAMPAIGN_STATUSES, type CampaignAction } from '@moss/domain';
+import { date, foreignKey } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid().primaryKey().defaultRandom(),
@@ -193,4 +196,100 @@ export const variantCostChanges = pgTable(
     changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index('variant_cost_changes_variant_idx').on(table.variantId, table.changedAt)],
+);
+
+// K1 · Campañas: modelo y lista. La restricción de empalme (EXCLUDE) y los tipos sembrados están en
+// la migración personalizada `0007_campaigns_overlap`: Drizzle no expresa EXCLUDE.
+export const campaignStatus = pgEnum('campaign_status', PERSISTED_CAMPAIGN_STATUSES);
+export const campaignEventType = pgEnum('campaign_event_type', [
+  'schedule',
+  'unschedule',
+  'cancel',
+  'close',
+  'reopen',
+] as const satisfies readonly CampaignAction[]);
+
+export const campaignTypes = pgTable(
+  'campaign_types',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    name: text().notNull(),
+    /** Evento: sus campañas pueden empalmarse. Temporada: no. Se copia en cada campaña. */
+    allowsOverlap: boolean('allows_overlap').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('campaign_types_name_unique').on(sql`lower(${table.name})`),
+    // Destino de la FK compuesta de campaigns: mantiene allows_overlap igual al del tipo.
+    unique('campaign_types_id_allows_overlap_unique').on(table.id, table.allowsOverlap),
+  ],
+);
+
+export const campaigns = pgTable(
+  'campaigns',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    name: text().notNull(),
+    campaignTypeId: uuid('campaign_type_id').notNull(),
+    /** Copia de campaign_types.allows_overlap (FK compuesta con ON UPDATE CASCADE) para el EXCLUDE. */
+    allowsOverlap: boolean('allows_overlap').notNull(),
+    budget: integer().notNull(),
+    startDate: date('start_date', { mode: 'string' }),
+    endDate: date('end_date', { mode: 'string' }),
+    status: campaignStatus().notNull().default('draft'),
+    /** Porcentaje entero en puntos base (múltiplo de 100), como D7 y §8 regla 7. */
+    reinvestmentBps: integer('reinvestment_bps').notNull().default(0),
+    notes: text(),
+    clonedFromId: uuid('cloned_from_id'),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'campaigns_type_allows_overlap_fk',
+      columns: [table.campaignTypeId, table.allowsOverlap],
+      foreignColumns: [campaignTypes.id, campaignTypes.allowsOverlap],
+    })
+      .onUpdate('cascade')
+      .onDelete('restrict'),
+    foreignKey({
+      name: 'campaigns_cloned_from_fk',
+      columns: [table.clonedFromId],
+      foreignColumns: [table.id],
+    }),
+    index('campaigns_type_idx').on(table.campaignTypeId),
+    check('campaigns_budget_non_negative', sql`${table.budget} >= 0`),
+    check(
+      'campaigns_reinvestment_whole_percent',
+      sql`${table.reinvestmentBps} BETWEEN 0 AND 10000 AND ${table.reinvestmentBps} % 100 = 0`,
+    ),
+    // D4: un borrador no valida fechas; cualquier otro estado tiene ambas con inicio <= fin.
+    check(
+      'campaigns_dates_unless_draft',
+      sql`${table.status} = 'draft' OR (${table.startDate} IS NOT NULL AND ${table.endDate} IS NOT NULL AND ${table.startDate} <= ${table.endDate})`,
+    ),
+  ],
+);
+
+/** Bitácora (§8 regla 11): usuario, fecha y motivo en columnas propias; `payload` lleva el socio. */
+export const campaignEvents = pgTable(
+  'campaign_events',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    campaignId: uuid('campaign_id')
+      .notNull()
+      // Un borrador se puede eliminar (§5) y se lleva su historial; las cerradas nunca se eliminan.
+      .references(() => campaigns.id, { onDelete: 'cascade' }),
+    type: campaignEventType().notNull(),
+    fromStatus: campaignStatus('from_status').notNull(),
+    toStatus: campaignStatus('to_status').notNull(),
+    actorUserId: uuid('actor_user_id')
+      .notNull()
+      .references(() => users.id),
+    reason: text(),
+    payload: jsonb().$type<{ partnerId: string }>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('campaign_events_campaign_idx').on(table.campaignId, table.createdAt)],
 );

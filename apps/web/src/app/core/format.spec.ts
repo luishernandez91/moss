@@ -1,4 +1,11 @@
-import { formatDate, formatDateTime, formatMoney, formatStock, formatUnitCost } from './format';
+import {
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  formatStock,
+  formatUnitCost,
+  formatDateRange,
+} from './format';
 
 describe('format', () => {
   it('formatea centavos como pesos mexicanos', () => {
@@ -28,5 +35,13 @@ describe('format', () => {
     expect(formatDateTime('2026-11-04T18:30:00.000Z')).toBe('4 nov 2026');
     // 01:00 UTC del 5 nov es todavía 4 nov en America/Mexico_City.
     expect(formatDateTime('2026-11-05T01:00:00.000Z')).toBe('4 nov 2026');
+  });
+
+  it('formatea rangos de fechas sin repetir el año cuando coincide', () => {
+    expect(formatDateRange('2026-11-01', '2026-12-24')).toBe('1 nov – 24 dic 2026');
+    expect(formatDateRange('2026-12-20', '2027-01-06')).toBe('20 dic 2026 – 6 ene 2027');
+    expect(formatDateRange('2026-11-02', '2026-11-02')).toBe('2 nov 2026');
+    expect(formatDateRange(null, null)).toBe('Sin fechas');
+    expect(formatDateRange('2026-11-01', null)).toBe('Desde 1 nov 2026');
   });
 });

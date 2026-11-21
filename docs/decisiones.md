@@ -2,6 +2,26 @@
 
 Registro breve de decisiones. Una entrada por decisión, la más reciente arriba. Formato: contexto, decisión, consecuencias.
 
+## 2026-11-20 · Campañas: modelo y lista (K1)
+
+- **Contexto:** K1 crea el modelo de campañas, la lista de la pantalla 11 y el empalme en la base. La creación con interfaz es de K2, pero el empalme y la bitácora necesitan un camino real de escritura.
+- **Decisión** (diseño aprobado por el usuario):
+  - `campaign_types(id, name, allows_overlap)` sembrada en la migración con Temporada (`false`) y Evento (`true`), sin interfaz hasta S2. La pantalla 24 no se toca.
+  - `campaigns`: estados guardados `draft`, `scheduled`, `closed`, `cancelled` (`active` y `closing` se derivan con D4 y el reloj inyectado en `America/Mexico_City`); CHECK de D4 (borrador sin validar fechas; otros estados con ambas e inicio ≤ fin); presupuesto en centavos; `reinvestment_bps` múltiplo de 100 (§8 regla 7 y D7 piden puntos base; la API expone `reinvestmentPercent` entero); `notes`; `cloned_from_id`; `closed_at`. `leftover_inventory` (valor del sobrante al cerrar, en centavos a costo, D7) queda para K7.
+  - Empalme: `allows_overlap` se copia del tipo y una FK compuesta `(campaign_type_id, allows_overlap) → campaign_types(id, allows_overlap) ON UPDATE CASCADE` lo mantiene igual. `EXCLUDE USING gist (campaign_type_id WITH =, daterange(start_date, end_date, '[]') WITH &&) WHERE (status = 'scheduled' AND NOT allows_overlap)`, en la migración personalizada `0007_campaigns_overlap` (Drizzle no expresa EXCLUDE) junto con los tipos sembrados. `btree_gist` ya está en `0000_extensions` y CI (`postgres:18-alpine`) la soporta.
+  - API mínima sin interfaz: `POST /api/campaigns` (borrador) y `POST /api/campaigns/:id/schedule` (D4 + D5 en una transacción con `SELECT … FOR UPDATE`). Empalme: 409 `OVERLAP` con `details.conflicts` (nombre y fechas ISO); una carrera que rechaza el EXCLUDE (23P01) se traduce al mismo 409. Fechas o transición inválidas: 422 de D4.
+  - Bitácora: `campaign_events(id, campaign_id, type, from_status, to_status, actor_user_id, reason, payload, created_at)`. Usuario (`actor_user_id NOT NULL`, FK a `users`, de la sesión), motivo (`reason`) y fecha (`created_at`) en columnas propias, como pide §8 regla 11; `payload` lleva el socio, que es otro dato. Programar escribe exactamente un evento en la misma transacción; un 409 o 422 no escribe ninguno. `campaign_id` usa `ON DELETE CASCADE`: un borrador que se elimina (§5, K2) se lleva su historial. Un trigger `BEFORE DELETE` en `campaigns` (migración `0007`) rechaza con `restrict_violation` (23001) borrar cualquier campaña que no sea borrador, también por SQL directo, para que la cascada nunca alcance el historial de una programada, cerrada o cancelada.
+  - Lista: `GET /api/campaigns?status=&awaitingClose=` deriva el estado con `listCampaigns` (dominio) y ordena activas, por cerrar, programadas, borradores, cerradas, canceladas. El editor de participación de S1 lista las que esperan cierre (no cerradas ni canceladas) y avisa si no se pudieron cargar.
+  - Pantalla 11 sin «Nueva campaña» ni menú ⋮ (K2); gastado, vendido y resultado como «—». La línea de tiempo muestra programadas, activas y por cerrar, una fila por tipo y carriles para los eventos empalmados.
+  - Worktree paralelo a C3: bases `moss_k1` / `moss_k1_test`, API 3200 / e2e 3300, web 4400 / e2e 4500, con los puertos configurables del PR #16.
+- **Consecuencias:** K2 agrega la interfaz de escritura, editar, regresar a borrador, cancelar y clonar, con sus eventos. K7 agrega `leftover_inventory`. C3 se fusionó antes con `0005_sizes`: las migraciones de K1 se regeneraron sobre `main` como `0006_campaigns` (generada) y `0007_campaigns_overlap` (recreada con `drizzle-kit generate --custom` y el mismo SQL).
+
+## 2026-11-20 · Empalme por tipo: los eventos pueden empalmarse
+
+- **Contexto:** «Empalme no configurable» impedía siempre el empalme dentro del mismo tipo. Los pedidos para eventos (§6) crean campañas de tipo evento que pueden coincidir en fechas.
+- **Decisión** (del usuario): reemplaza a «Empalme no configurable». Sigue sin haber interruptor en la interfaz, pero el empalme depende del tipo: `campaign_types.allows_overlap` (Temporada `false`, Evento `true`). D5 (`findCampaignOverlaps` / `assertNoCampaignOverlap`) recibe `allowsOverlap` en la candidata y no reporta empalmes si es `true` (las fechas se validan igual con D4). La base aplica la misma regla con `WHERE (… AND NOT allows_overlap)` en el EXCLUDE.
+- **Consecuencias:** se actualizaron §5 (pantallas 12 y 24), §6, §8 regla 6, §9, §10 y la regla 6 de AGENTS.md. La nota de la línea de tiempo dice «Campañas del mismo tipo no se empalman, excepto eventos.».
+
 ## 2026-11-19 · Alcance de los porcentajes enteros
 
 - **Contexto:** C2 hizo que `percentage` y `percentSchema` rechacen decimales, pero D3 compara contra un margen mínimo configurable que puede ser decimal (11.3%).
