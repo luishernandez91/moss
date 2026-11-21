@@ -55,6 +55,7 @@ export class SizesService {
       if (!current) throw missing();
       runDomainRule(SizeError, () => assertSizeDeletion(current.inUse ? 1 : 0), 409);
       await guardWrite(() => tx.delete(sizes).where(eq(sizes.id, id)), {
+        foreignKeyConstraint: 'article_variants_size_id_sizes_id_fk',
         foreignKey: () =>
           new ConflictException({
             code: 'SIZE_IN_USE',

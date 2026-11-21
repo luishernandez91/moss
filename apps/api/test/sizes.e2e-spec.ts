@@ -111,6 +111,33 @@ describe('C3 tamaños (moss_test)', () => {
       .expect(200);
     await del(`/api/sizes/${s.id}`).expect(204);
   });
+  it.each(['Small', 'tamaño', 'extra-large', 'two words', '1small', '_small'])(
+    'POST /api/sizes rechaza el formato de clave %s sin persistir',
+    async (key) => {
+      const before = (await get('/api/sizes')).body as Size[];
+      const response = await post('/api/sizes', { key, label: 'Inválido' });
+      expect(response.status).toBe(422);
+      expect(response.body).toMatchObject({ code: 'INVALID_SIZE_KEY' });
+      expect((await get('/api/sizes')).body).toEqual(before);
+    },
+  );
+  it('editar una variante a otro tamaño desactivado devuelve 422 SIZE_INACTIVE sin cambios', async () => {
+    const current = await size();
+    const inactive = await size();
+    const t = await type(true);
+    const created = await post('/api/articles', article(t.id, [variant(current.id)]));
+    expect(created.status).toBe(201);
+    const a = created.body as ArticleDetail;
+    await patch(`/api/sizes/${inactive.id}`, { active: false }).expect(200);
+    const response = await patch(`/api/articles/${a.id}/variants/${a.variants[0]!.id}`, {
+      sizeId: inactive.id,
+      stock: 9,
+    });
+    expect(response.status).toBe(422);
+    expect(response.body).toMatchObject({ code: 'SIZE_INACTIVE' });
+    const after = (await get(`/api/articles/${a.id}`)).body as ArticleDetail;
+    expect(after.variants).toEqual(a.variants);
+  });
   it('exige size_id según tipo en alta, agregar y editar; bloquea ambos cambios de uses_size', async () => {
     const s = await size();
     const sized = await type(true);

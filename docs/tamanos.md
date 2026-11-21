@@ -31,6 +31,8 @@ El seed es transaccional e idempotente: crea faltantes, no cambia capturas exist
 
 Dominio y API exigen tamaño exactamente cuando el tipo lo usa. Las escrituras de tamaños, cambios de tipo, creación de artículos, edición/alta de variantes y seed comparten un bloqueo asesor transaccional. Evita que cambiar el tipo, desactivar/borrar un tamaño o reordenar se intercalen con una asignación validada antes del cambio. La FK RESTRICT y la unicidad respaldan referencias y combinaciones incluso para SQL directo.
 
+El bloqueo se identifica con la constante compartida `CATALOG_WRITE_LOCK` en `catalog-write.ts`, consumida por el mismo helper en API y seed. El borrado traduce los errores PostgreSQL `23503`/`23001` a `SIZE_IN_USE` únicamente cuando el constraint es `article_variants_size_id_sizes_id_fk`; si es otro o no se informa, propaga el error original.
+
 No se agrega trigger por ahora: los escritores soportados son API y seed, ambos validados y serializados. Un trigger tendría que cubrir variantes, cambios de tipo y reasignaciones de artículo con el mismo protocolo de concurrencia. Si se habilitan importadores o escrituras SQL de negocio, conviene agregar esa defensa. SQL directo hoy puede violar la relación `uses_size`/`size_id`; no es un camino de escritura soportado.
 
 `sort_order` no es único. Se ordena por `(sort_order, id)` y se reescribe la permutación completa en una transacción; miembros faltantes, repetidos o nuevos causan 409 sin cambios parciales. No requiere `DEFERRABLE`. Si se añade unicidad al orden en el futuro, deberá ser una restricción diferible.
