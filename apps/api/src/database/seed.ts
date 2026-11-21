@@ -511,7 +511,8 @@ type SpecComponent = SpecProduct['componentes'][number];
  * C4: crea los productos que faltan, por nombre, con su oferta de tamaños, precios y receta. Un
  * producto existente no se toca (si tiene otro padre, es un choque). `sustituye_componente_id` se
  * resuelve con los componentes creados en esta corrida o, si el ancestro ya existía, con el
- * componente que tiene la misma identidad de grupo (D2). Al final valida el catálogo completo.
+ * componente que tiene la misma identidad de grupo (D2). Al final valida nombres y árbol de todo el
+ * catálogo, y oferta, precios y recetas de los productos creados (como una escritura de la API).
  */
 async function seedProducts(
   tx: Database,

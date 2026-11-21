@@ -281,9 +281,11 @@ function describe(component: PersistedComponent, catalog: ProductCatalog): strin
   return `«${article?.name ?? component.articleId}»`;
 }
 
+/** Decimales del número tal como se escribe (sin multiplicar, para no perder precisión). */
 function hasAtMostDecimals(value: number, decimals: number): boolean {
-  const scaled = value * 10 ** decimals;
-  return Math.abs(scaled - Math.round(scaled)) < 1e-6;
+  const [mantissa = '', exponent = '0'] = String(value).toLowerCase().split('e');
+  const fraction = mantissa.split('.')[1]?.length ?? 0;
+  return fraction - Number(exponent) <= decimals;
 }
 
 /**
@@ -729,6 +731,7 @@ export function assessProductCosts(
   options: CostOptions,
 ): ProductCostSummary[] {
   const products = toCostProducts(catalog.products, catalog.components);
+  const label = (sizeId: SizeId) => sizeLabel(catalog, sizeId);
   return catalog.products.map((product) => ({
     productId: product.id,
     sizes: displayedSizes(catalog, product.id).map((sizeId): SizeCost => {
@@ -739,6 +742,7 @@ export function assessProductCosts(
           articles: catalog.articles,
           productId: product.id,
           size: sizeId,
+          sizeLabel: label,
         });
         if (preview.total === null) {
           return {
@@ -793,6 +797,7 @@ export function productCostDetail(
     articles: catalog.articles,
     productId: input.productId,
     size: input.sizeId,
+    sizeLabel: (sizeId) => sizeLabel(catalog, sizeId),
     ...(input.variantChoices && { variantChoices: input.variantChoices }),
   });
   const product = catalog.products.find((candidate) => candidate.id === input.productId)!;

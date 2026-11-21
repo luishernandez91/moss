@@ -129,6 +129,12 @@ describe('recipeSchema', () => {
       ],
     });
     expect(parsed.components).toHaveLength(4);
+    expect(
+      recipeSchema.safeParse({
+        version: 0,
+        components: [article({ values: [{ sizeId: null, quantity: 12345678.1234 }] })],
+      }).success,
+    ).toBe(true);
   });
 
   it('rechaza valores mezclados, repetidos, vacíos o con más de 4 decimales', () => {

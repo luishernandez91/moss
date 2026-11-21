@@ -391,7 +391,19 @@ describe('validateProductCatalog', () => {
     for (const [component, code] of cases) {
       expectError(() => validateProductCatalog(withProducts(products, [component])), code);
     }
-    // Cantidades fraccionarias de hasta 4 decimales.
+    // Cantidades fraccionarias de hasta 4 decimales, también cerca del máximo de numeric(12,4).
+    expect(() =>
+      validateProductCatalog(
+        withProducts(products, [
+          articleComponent({
+            id: 'x',
+            productId: 'a',
+            articleId: 'hilo-canamo',
+            values: [{ sizeId: null, quantity: 12345678.1234 }],
+          }),
+        ]),
+      ),
+    ).not.toThrow();
     expect(() =>
       validateProductCatalog(
         withProducts(products, [
@@ -763,6 +775,76 @@ describe('assessProductCosts y productCostDetail', () => {
     const helecho = rows.find((row) => row.productId === 'kokedama-helecho')!.sizes;
     expect(helecho.map((size) => size.status)).toEqual(['ok', 'ok', 'error']);
     expect(helecho[2]!.error).toMatchObject({ code: 'NO_MATCHING_VARIANT' });
+  });
+
+  it('los mensajes de error usan nombres y etiquetas de tamaño, no ids', () => {
+    const products = samplePersistedProducts.map((candidate) =>
+      candidate.id === 'kokedama-helecho'
+        ? { ...candidate, sizeOffer: { mode: 'inherit' as const } }
+        : candidate,
+    );
+    const components = [
+      ...samplePersistedComponents,
+      fixed({
+        id: 'pm-extra',
+        productId: 'planta-en-maceta',
+        concept: 'Etiqueta',
+        values: [{ sizeId: 'chico', amount: cents(100) }],
+      }),
+    ];
+    const catalog = sampleProductCatalog({
+      products,
+      components,
+      sizes: sampleSizes.map((size) => ({ ...size, id: `id-${size.id}` })),
+    });
+    // Mismo catálogo con ids opacos de tamaño: los mensajes deben mostrar la etiqueta.
+    const opaque: ProductCatalog = {
+      ...catalog,
+      products: catalog.products.map((product) => ({
+        ...product,
+        sizeOffer:
+          product.sizeOffer.mode === 'explicit'
+            ? { mode: 'explicit', sizeIds: product.sizeOffer.sizeIds.map((id) => `id-${id}`) }
+            : product.sizeOffer,
+        prices: product.prices.map((price) => ({ ...price, sizeId: `id-${price.sizeId}` })),
+      })),
+      components: catalog.components.map((component) =>
+        component.kind === 'fixed'
+          ? {
+              ...component,
+              values: component.values.map((v) => ({ ...v, sizeId: v.sizeId && `id-${v.sizeId}` })),
+            }
+          : {
+              ...component,
+              variantSize:
+                component.variantSize?.match === 'size'
+                  ? { match: 'size', sizeId: `id-${component.variantSize.sizeId}` }
+                  : component.variantSize,
+              values: component.values.map((v) => ({ ...v, sizeId: v.sizeId && `id-${v.sizeId}` })),
+            },
+      ),
+      articles: catalog.articles.map((article) => ({
+        ...article,
+        variants: article.variants.map((variant) => ({
+          ...variant,
+          sizeId: variant.sizeId && `id-${variant.sizeId}`,
+        })),
+      })),
+    };
+    const rows = assessProductCosts(opaque, { minMarginPercent: 0 });
+    const messages = rows
+      .flatMap((row) => row.sizes)
+      .flatMap((size) => (size.error ? [size.error.message] : []));
+    expect(messages.length).toBeGreaterThan(0);
+    for (const message of messages) {
+      expect(message).not.toMatch(/id-|pm-extra|kh-planta|k-fab/);
+    }
+    expect(messages).toContain(
+      'Ninguna variante de «Helecho Boston» cumple el filtro del componente «Helecho Boston» de «Kokedama Helecho Boston» en tamaño Grande.',
+    );
+    expect(messages).toContain(
+      'Ningún componente «Etiqueta» de «Planta en maceta» aplica al tamaño Mini; solo está definido para: Chico.',
+    );
   });
 
   it('avisa precio bajo el costo y bajo el margen mínimo', () => {

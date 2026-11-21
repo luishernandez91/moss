@@ -85,8 +85,9 @@ const quantity = z
   .positive('La cantidad debe ser mayor que 0.')
   .max(QUANTITY_MAX)
   .refine((value) => {
-    const scaled = value * 10 ** QUANTITY_DECIMALS_MAX;
-    return Math.abs(scaled - Math.round(scaled)) < 1e-6;
+    // Decimales del número como se escribe; multiplicar perdería precisión cerca del máximo.
+    const [mantissa = '', exponent = '0'] = String(value).toLowerCase().split('e');
+    return (mantissa.split('.')[1]?.length ?? 0) - Number(exponent) <= QUANTITY_DECIMALS_MAX;
   }, `Usa como máximo ${QUANTITY_DECIMALS_MAX} decimales.`);
 
 /** Un valor para todos los tamaños (`sizeId` null) o uno por tamaño, sin mezclar ni repetir. */
