@@ -1,7 +1,10 @@
 import type { StockUnit } from './article.js';
 import { add, cents, multiply, type Cents } from './money.js';
 
-/** «Mismo tamaño que se produce» en un filtro de receta; `{tamano}` en la especificación. */
+/**
+ * «Mismo tamaño que se produce» en el tamaño de variante de un componente; `{tamano}` en la
+ * especificación. El tamaño es la dimensión global `sizeId` de la variante (C3), no un atributo.
+ */
 export const SIZE_PLACEHOLDER = '{size}';
 export const MAX_PRODUCT_TREE_DEPTH = 3;
 
@@ -10,9 +13,14 @@ export type AttributeValue = string | number | boolean;
 export type PerSize<T> = T | Readonly<Record<SizeId, T>>;
 
 export interface Variant {
+  id: string;
   sku: string;
+  /** Tamaño global de la variante (C3); null si su tipo no usa tamaño. */
+  sizeId: SizeId | null;
   attributes: Readonly<Record<string, AttributeValue>>;
   averageCost: Cents;
+  /** Una variante inactiva no entra en filtros ni elecciones; una referencia fija sí la resuelve. */
+  active?: boolean;
 }
 
 export interface Article {
@@ -34,8 +42,12 @@ interface ComponentBase {
 export interface ArticleComponent extends ComponentBase {
   kind: 'article';
   articleId: string;
-  variantSku?: string;
+  /** Variante fija, por id. Excluye filtro y tamaño de variante. */
+  variantId?: string;
+  /** Filtro sobre atributos que definen variante; el tamaño va en `variantSize`. */
   attributeFilter?: Readonly<Record<string, AttributeValue>>;
+  /** `SIZE_PLACEHOLDER` = el tamaño que se produce; otro valor = ese tamaño (id). */
+  variantSize?: SizeId;
   quantity: PerSize<number>;
 }
 
@@ -70,6 +82,7 @@ export interface ResolveCostInput {
   productId: string;
   size: SizeId;
   addOn?: AddOn;
+  /** Variante elegida por componente: id de componente → id de variante. */
   variantChoices?: Readonly<Record<string, string>>;
   costOf?: CostLookup;
 }
@@ -87,7 +100,10 @@ export interface CostLine {
   origin: LineOrigin;
   source: LineSource;
   articleId: string | null;
+  variantId: string | null;
   variantSku: string | null;
+  /** La variante resuelta está desactivada (solo posible con una variante fija). */
+  variantInactive: boolean;
   quantity: number;
   unitCost: Cents | null;
   subtotal: Cents | null;
@@ -100,6 +116,27 @@ export interface CostBreakdown {
   addOnId: string | null;
   lines: CostLine[];
   total: Cents;
+}
+
+export interface VariantCandidate {
+  variantId: string;
+  sku: string;
+  sizeId: SizeId | null;
+  attributes: Readonly<Record<string, AttributeValue>>;
+  unitCost: Cents;
+}
+
+/** Componente cuyo filtro coincide con varias variantes: hay que elegir una (D2). */
+export interface PendingChoice {
+  componentId: string;
+  articleId: string;
+  candidates: VariantCandidate[];
+}
+
+/** Desglose que no lanza por ambigüedad: líneas pendientes sin costo y total null. */
+export interface CostPreview extends Omit<CostBreakdown, 'total'> {
+  total: Cents | null;
+  pendingChoices: PendingChoice[];
 }
 
 export type CostResolutionErrorCode =
@@ -155,11 +192,25 @@ interface Level {
  * de `costOf` (por defecto, el costo promedio del catálogo).
  */
 export function resolveCost(input: ResolveCostInput): CostBreakdown {
+  const { total, pendingChoices: _none, ...rest } = resolve(input, 'throw');
+  return { ...rest, total: total! };
+}
+
+/**
+ * Igual que `resolveCost`, pero un componente con varias variantes posibles no lanza
+ * `AMBIGUOUS_VARIANT`: su línea queda sin costo, se devuelven sus candidatas y el total es null
+ * hasta elegir. Nunca toma la primera ni promedia. Los demás errores se lanzan igual.
+ */
+export function previewCost(input: ResolveCostInput): CostPreview {
+  return resolve(input, 'collect');
+}
+
+function resolve(input: ResolveCostInput, ambiguity: 'throw' | 'collect'): CostPreview {
   const { size, addOn, variantChoices = {}, costOf = defaultCostOf } = input;
   const productsById = new Map(input.products.map((product) => [product.id, product]));
   const articlesById = new Map(input.articles.map((article) => [article.id, article]));
 
-  const chain = productChain(productsById, input.productId);
+  const chain = resolveProductChain(productsById, input.productId);
   const leaf = chain[chain.length - 1]!;
   assertSizeOffered(chain, size);
   if (addOn && !addOn.appliesTo.some((id) => chain.some((product) => product.id === id))) {
@@ -218,27 +269,34 @@ export function resolveCost(input: ResolveCostInput): CostBreakdown {
   ];
   assertKnownChoices(entries, variantChoices);
 
+  const pendingChoices: PendingChoice[] = [];
   const lines = entries.map((entry) =>
-    toLine(entry, { size, articlesById, variantChoices, costOf }),
+    toLine(entry, { size, articlesById, variantChoices, costOf, ambiguity, pendingChoices }),
   );
-  const total = add(
-    ...lines.flatMap((line) =>
-      line.origin !== 'overridden' && line.subtotal !== null ? [line.subtotal] : [],
-    ),
-  );
+  const total =
+    pendingChoices.length > 0
+      ? null
+      : add(
+          ...lines.flatMap((line) =>
+            line.origin !== 'overridden' && line.subtotal !== null ? [line.subtotal] : [],
+          ),
+        );
 
-  return { productId: leaf.id, size, addOnId: addOn?.id ?? null, lines, total };
+  return { productId: leaf.id, size, addOnId: addOn?.id ?? null, lines, total, pendingChoices };
 }
 
 /** Devuelve la cadena raíz → producto. Rechaza ciclos, padres inexistentes y más de 3 niveles. */
-function productChain(productsById: Map<string, Product>, productId: string): Product[] {
+export function resolveProductChain<P extends Pick<Product, 'id' | 'parentId' | 'name'>>(
+  productsById: ReadonlyMap<string, P>,
+  productId: string,
+): P[] {
   const product = productsById.get(productId);
   if (!product) {
     throw new CostResolutionError('PRODUCT_NOT_FOUND', `No existe el producto «${productId}».`);
   }
-  const chain: Product[] = [];
+  const chain: P[] = [];
   const visited = new Set<string>();
-  let current: Product | undefined = product;
+  let current: P | undefined = product;
   while (current) {
     if (visited.has(current.id)) {
       const path = [...chain.map((node) => node.name), current.name].join(' → ');
@@ -293,15 +351,18 @@ function assertUniqueComponentIds(chain: readonly Product[], addOn: AddOn | unde
   }
 }
 
-/** Clave que identifica "el mismo componente" dentro de un producto (genérico frente a con tamaño). */
-function groupKey(component: RecipeComponent): string {
+/**
+ * Clave que identifica "el mismo componente" dentro de un producto (genérico frente a con tamaño):
+ * artículo + variante fija + tamaño de variante + filtro, o el concepto en los de monto fijo.
+ */
+export function componentGroupKey(component: RecipeComponent): string {
   if (component.kind === 'fixed') {
     return `fixed|${component.concept}`;
   }
   const filter = Object.entries(component.attributeFilter ?? {}).sort(([a], [b]) =>
-    a.localeCompare(b),
+    a < b ? -1 : a > b ? 1 : 0,
   );
-  return `article|${component.articleId}|${component.variantSku ?? ''}|${JSON.stringify(filter)}`;
+  return `article|${component.articleId}|${component.variantId ?? ''}|${component.variantSize ?? ''}|${JSON.stringify(filter)}`;
 }
 
 function perSizeValue<T extends number>(value: PerSize<T>, size: SizeId): T | undefined {
@@ -337,7 +398,7 @@ function selectForSize(
 ): Level {
   const groups = new Map<string, RecipeComponent[]>();
   for (const component of components) {
-    const key = groupKey(component);
+    const key = componentGroupKey(component);
     groups.set(key, [...(groups.get(key) ?? []), component]);
   }
 
@@ -461,6 +522,8 @@ interface LineContext {
   articlesById: Map<string, Article>;
   variantChoices: Readonly<Record<string, string>>;
   costOf: CostLookup;
+  ambiguity: 'throw' | 'collect';
+  pendingChoices: PendingChoice[];
 }
 
 function toLine(entry: Entry, context: LineContext): CostLine {
@@ -481,7 +544,9 @@ function toLine(entry: Entry, context: LineContext): CostLine {
       ...base,
       concept: component.concept,
       articleId: null,
+      variantId: null,
       variantSku: null,
+      variantInactive: false,
       quantity: 1,
       unitCost: amount,
       subtotal: multiply(amount, 1),
@@ -503,6 +568,14 @@ function toLine(entry: Entry, context: LineContext): CostLine {
     quantity,
   };
 
+  const unresolved = {
+    ...lineBase,
+    variantId: null,
+    variantSku: null,
+    variantInactive: false,
+    unitCost: null,
+    subtotal: null,
+  };
   let variant: Variant;
   try {
     // Una línea sustituida no usa la elección de variante: no se produce.
@@ -515,43 +588,73 @@ function toLine(entry: Entry, context: LineContext): CostLine {
     );
   } catch (error) {
     if (overridden && error instanceof CostResolutionError) {
-      return { ...lineBase, variantSku: null, unitCost: null, subtotal: null };
+      return unresolved;
+    }
+    if (
+      context.ambiguity === 'collect' &&
+      error instanceof CostResolutionError &&
+      error.code === 'AMBIGUOUS_VARIANT'
+    ) {
+      context.pendingChoices.push({
+        componentId: component.id,
+        articleId: article.id,
+        candidates: variantCandidates(component, article, context.size).map((candidate) => ({
+          variantId: candidate.id,
+          sku: candidate.sku,
+          sizeId: candidate.sizeId,
+          attributes: candidate.attributes,
+          unitCost: cents(context.costOf(candidate, article)),
+        })),
+      });
+      return unresolved;
     }
     throw error;
   }
   const unitCost = cents(context.costOf(variant, article));
   return {
     ...lineBase,
+    variantId: variant.id,
     variantSku: variant.sku,
+    variantInactive: variant.active === false,
     unitCost,
     subtotal: multiply(unitCost, quantity),
   };
+}
+
+/**
+ * Variantes que puede usar un componente: la fija (aunque esté inactiva: la referencia existente
+ * se conserva) o las activas que cumplen el tamaño de variante y el filtro de atributos.
+ */
+function variantCandidates(component: ArticleComponent, article: Article, size: SizeId): Variant[] {
+  if (component.variantId !== undefined) {
+    return article.variants.filter((variant) => variant.id === component.variantId);
+  }
+  const wantedSize = component.variantSize === SIZE_PLACEHOLDER ? size : component.variantSize;
+  const filter = Object.entries(component.attributeFilter ?? {});
+  return article.variants.filter(
+    (variant) =>
+      variant.active !== false &&
+      (wantedSize === undefined || variant.sizeId === wantedSize) &&
+      filter.every(([attribute, expected]) => variant.attributes[attribute] === expected),
+  );
 }
 
 function pickVariant(
   component: ArticleComponent,
   article: Article,
   size: SizeId,
-  chosenSku: string | undefined,
+  chosenId: string | undefined,
   ownerName: string,
 ): Variant {
-  const filter = Object.entries(component.attributeFilter ?? {});
-  const candidates =
-    component.variantSku !== undefined
-      ? article.variants.filter((variant) => variant.sku === component.variantSku)
-      : article.variants.filter((variant) =>
-          filter.every(
-            ([attribute, expected]) =>
-              variant.attributes[attribute] === (expected === SIZE_PLACEHOLDER ? size : expected),
-          ),
-        );
+  const candidates = variantCandidates(component, article, size);
 
-  if (chosenSku !== undefined) {
-    const chosen = candidates.find((variant) => variant.sku === chosenSku);
+  if (chosenId !== undefined) {
+    const chosen = candidates.find((variant) => variant.id === chosenId);
     if (!chosen) {
+      const label = article.variants.find((variant) => variant.id === chosenId)?.sku ?? chosenId;
       throw new CostResolutionError(
         'VARIANT_NOT_ALLOWED',
-        `La variante ${chosenSku} no cumple el filtro del componente ${component.id} de «${ownerName}» («${article.name}»).`,
+        `La variante ${label} no cumple el filtro del componente ${component.id} de «${ownerName}» («${article.name}»).`,
       );
     }
     return chosen;

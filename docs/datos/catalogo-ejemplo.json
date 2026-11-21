@@ -289,6 +289,7 @@
       "id": "kokedama-helecho",
       "parent_id": "kokedama",
       "nombre": "Kokedama Helecho Boston",
+      "tamanos": ["chico", "mediano"],
       "componentes": [
         { "id": "kh-planta", "articulo_id": "helecho-boston", "filtro_atributos": { "tamano": "{tamano}" }, "tipo": "material", "cantidad": 1 },
         { "id": "kh-humus", "articulo_id": "humus-lombriz", "tipo": "material", "cantidad": 0.03 },
