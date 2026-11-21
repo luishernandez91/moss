@@ -119,11 +119,10 @@ export const samplePersistedComponents: PersistedComponent[] = rawProducts.flatM
   product.componentes.map((component) => toPersistedComponent(component, product.id)),
 );
 
-const typeOf = new Map(
-  (catalog.articulos as { id: string; tipo: string }[]).map((article) => [
-    article.id,
-    article.tipo,
-  ]),
+const rawArticles = catalog.articulos as { id: string; tipo: string; se_usa_en_recetas: boolean }[];
+const typeOf = new Map(rawArticles.map((article) => [article.id, article.tipo]));
+const usedInRecipes = new Map(
+  rawArticles.map((article) => [article.id, article.se_usa_en_recetas]),
 );
 const types = catalog.tipos_articulo as RawType[];
 
@@ -132,6 +131,7 @@ export const sampleCatalogArticles: CatalogArticle[] = sampleArticles.map((artic
   return {
     ...article,
     active: true,
+    usedInRecipes: usedInRecipes.get(article.id)!,
     usesSize: type.atributos.some((attribute) => attribute.nombre === 'tamano'),
     variantAttributes: type.atributos
       .filter((attribute) => attribute.define_variante && attribute.nombre !== 'tamano')

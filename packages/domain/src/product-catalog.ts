@@ -87,6 +87,8 @@ export interface CatalogAttribute {
 /** Artículo con lo que C4 necesita para validar recetas. Sus variantes llevan `active`. */
 export interface CatalogArticle extends Article {
   active: boolean;
+  /** Marca «se usa en recetas» (§2): solo esos artículos se agregan a una receta. */
+  usedInRecipes: boolean;
   /** Su tipo usa tamaño (C3): solo entonces un componente puede pedir tamaño de variante. */
   usesSize: boolean;
   /** Atributos que definen variante: las únicas claves válidas en un filtro. */
@@ -129,6 +131,7 @@ export type ProductErrorCode =
   | 'COMPONENT_IN_USE'
   | 'SIZE_INACTIVE'
   | 'ARTICLE_INACTIVE'
+  | 'ARTICLE_NOT_FOR_RECIPES'
   | 'VARIANT_INACTIVE'
   | 'PARENT_INACTIVE';
 
@@ -598,7 +601,8 @@ function referencesOf(state: ProductReferences | null) {
 
 /**
  * Un producto solo puede agregar referencias a registros activos (padre, tamaños, artículos y
- * variantes fijas). Las que ya tenía se conservan aunque se hayan desactivado después.
+ * variantes fijas) y a artículos que se usan en recetas. Las que ya tenía se conservan aunque se
+ * hayan desactivado o desmarcado después.
  */
 export function assertNewReferencesActive(
   before: ProductReferences | null,
@@ -633,6 +637,12 @@ export function assertNewReferencesActive(
       throw new ProductError(
         'ARTICLE_INACTIVE',
         `El artículo «${article.name}» está desactivado; elige uno activo.`,
+      );
+    }
+    if (article && !article.usedInRecipes) {
+      throw new ProductError(
+        'ARTICLE_NOT_FOR_RECIPES',
+        `«${article.name}» no está marcado como «se usa en recetas».`,
       );
     }
   }

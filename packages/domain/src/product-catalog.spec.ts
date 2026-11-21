@@ -596,6 +596,16 @@ describe('assertNewReferencesActive', () => {
           product: kokedama,
           components: [
             ...kokedamaParts,
+            articleComponent({ id: 'n', productId: 'kokedama', articleId: 'maceta-ceramica' }),
+          ],
+        },
+        'ARTICLE_NOT_FOR_RECIPES',
+      ],
+      [
+        {
+          product: kokedama,
+          components: [
+            ...kokedamaParts,
             articleComponent({
               id: 'n',
               productId: 'kokedama',
