@@ -22,6 +22,9 @@ import {
 // K1 · Campañas (importaciones aparte para no reordenar las existentes).
 import { PERSISTED_CAMPAIGN_STATUSES, type CampaignAction } from '@moss/domain';
 import { date, foreignKey } from 'drizzle-orm/pg-core';
+// C4 · Productos y recetas.
+import { RECIPE_CATEGORIES } from '@moss/domain';
+import { primaryKey } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid().primaryKey().defaultRandom(),
@@ -292,4 +295,196 @@ export const campaignEvents = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index('campaign_events_campaign_idx').on(table.campaignId, table.createdAt)],
+);
+
+// C4 · Productos y recetas. Árbol de hasta 3 niveles y reglas de receta validados en dominio
+// (`product-catalog`) bajo el bloqueo de catálogo. Las FK a `sizes` llevan nombre para traducir
+// `SIZE_IN_USE` solo con ellas. Sin borrado de productos: se desactivan.
+export const recipeComponentCategory = pgEnum('recipe_component_category', RECIPE_CATEGORIES);
+
+export const products = pgTable(
+  'products',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    parentId: uuid('parent_id'),
+    name: text().notNull(),
+    /** true = hereda la oferta de tamaños; false = lista explícita en `product_sizes`. */
+    inheritsSizes: boolean('inherits_sizes').notNull().default(true),
+    active: boolean().notNull().default(true),
+    version: integer().notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'products_parent_id_fk',
+      columns: [table.parentId],
+      foreignColumns: [table.id],
+    }).onDelete('restrict'),
+    uniqueIndex('products_name_unique').on(sql`lower(${table.name})`),
+    index('products_parent_idx').on(table.parentId),
+    check(
+      'products_not_own_parent',
+      sql`${table.parentId} IS NULL OR ${table.parentId} <> ${table.id}`,
+    ),
+    check('products_version_nonnegative', sql`${table.version} >= 0`),
+  ],
+);
+
+/** Oferta explícita de tamaños de un producto (`inherits_sizes = false`). */
+export const productSizes = pgTable(
+  'product_sizes',
+  {
+    productId: uuid('product_id').notNull(),
+    sizeId: uuid('size_id').notNull(),
+  },
+  (table) => [
+    primaryKey({ name: 'product_sizes_pk', columns: [table.productId, table.sizeId] }),
+    foreignKey({
+      name: 'product_sizes_product_id_fk',
+      columns: [table.productId],
+      foreignColumns: [products.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'product_sizes_size_id_fk',
+      columns: [table.sizeId],
+      foreignColumns: [sizes.id],
+    }).onDelete('restrict'),
+  ],
+);
+
+/** Precio general propio por tamaño (§2); sin fila = sin precio, sin herencia (D3). */
+export const productPrices = pgTable(
+  'product_prices',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    productId: uuid('product_id').notNull(),
+    sizeId: uuid('size_id').notNull(),
+    price: integer().notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'product_prices_product_id_fk',
+      columns: [table.productId],
+      foreignColumns: [products.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'product_prices_size_id_fk',
+      columns: [table.sizeId],
+      foreignColumns: [sizes.id],
+    }).onDelete('restrict'),
+    unique('product_prices_product_size_unique').on(table.productId, table.sizeId),
+    check('product_prices_price_non_negative', sql`${table.price} >= 0`),
+  ],
+);
+
+/**
+ * Componente de receta con identidad estable; sus cantidades o montos por tamaño están en
+ * `recipe_component_values`. De artículo (`article_id`) o de monto fijo (concepto).
+ */
+export const recipeComponents = pgTable(
+  'recipe_components',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    productId: uuid('product_id').notNull(),
+    position: integer().notNull(),
+    articleId: uuid('article_id'),
+    /** Variante fija; excluye filtro y tamaño de variante. */
+    variantId: uuid('variant_id'),
+    attributeFilter: jsonb('attribute_filter')
+      .$type<Record<string, string | number | boolean>>()
+      .notNull()
+      .default({}),
+    /** `{tamano}`: la variante del tamaño que se produce. */
+    variantSizeProduced: boolean('variant_size_produced').notNull().default(false),
+    /** Tamaño literal de la variante. */
+    variantSizeId: uuid('variant_size_id'),
+    concept: text(),
+    category: recipeComponentCategory().notNull(),
+    replacesComponentId: uuid('replaces_component_id'),
+  },
+  (table) => [
+    foreignKey({
+      name: 'recipe_components_product_id_fk',
+      columns: [table.productId],
+      foreignColumns: [products.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'recipe_components_article_id_fk',
+      columns: [table.articleId],
+      foreignColumns: [articles.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'recipe_components_variant_id_fk',
+      columns: [table.variantId],
+      foreignColumns: [articleVariants.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'recipe_components_variant_size_id_fk',
+      columns: [table.variantSizeId],
+      foreignColumns: [sizes.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'recipe_components_replaces_component_id_fk',
+      columns: [table.replacesComponentId],
+      foreignColumns: [table.id],
+    }).onDelete('restrict'),
+    index('recipe_components_product_idx').on(table.productId, table.position),
+    index('recipe_components_replaces_idx').on(table.replacesComponentId),
+    check(
+      'recipe_components_kind',
+      sql`(${table.articleId} IS NOT NULL) OR (${table.concept} IS NOT NULL AND ${table.variantId} IS NULL AND ${table.attributeFilter} = '{}'::jsonb AND NOT ${table.variantSizeProduced} AND ${table.variantSizeId} IS NULL)`,
+    ),
+    check(
+      'recipe_components_fixed_variant_alone',
+      sql`${table.variantId} IS NULL OR (${table.attributeFilter} = '{}'::jsonb AND NOT ${table.variantSizeProduced} AND ${table.variantSizeId} IS NULL)`,
+    ),
+    check(
+      'recipe_components_one_variant_size',
+      sql`NOT (${table.variantSizeProduced} AND ${table.variantSizeId} IS NOT NULL)`,
+    ),
+    check(
+      'recipe_components_not_self_replacing',
+      sql`${table.replacesComponentId} IS NULL OR ${table.replacesComponentId} <> ${table.id}`,
+    ),
+    check('recipe_components_position_nonnegative', sql`${table.position} >= 0`),
+  ],
+);
+
+/** Cantidad (artículo) o monto en centavos (fijo) de un componente: genérico (`size_id` NULL) o por tamaño. */
+export const recipeComponentValues = pgTable(
+  'recipe_component_values',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    componentId: uuid('component_id').notNull(),
+    sizeId: uuid('size_id'),
+    quantity: numeric({ precision: 12, scale: 4, mode: 'number' }),
+    amount: integer(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'recipe_component_values_component_id_fk',
+      columns: [table.componentId],
+      foreignColumns: [recipeComponents.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'recipe_component_values_size_id_fk',
+      columns: [table.sizeId],
+      foreignColumns: [sizes.id],
+    }).onDelete('restrict'),
+    unique('recipe_component_values_component_size_unique')
+      .on(table.componentId, table.sizeId)
+      .nullsNotDistinct(),
+    check(
+      'recipe_component_values_one_value',
+      sql`(${table.quantity} IS NULL) <> (${table.amount} IS NULL)`,
+    ),
+    check(
+      'recipe_component_values_quantity_positive',
+      sql`${table.quantity} IS NULL OR ${table.quantity} > 0`,
+    ),
+    check(
+      'recipe_component_values_amount_non_negative',
+      sql`${table.amount} IS NULL OR ${table.amount} >= 0`,
+    ),
+  ],
 );
