@@ -4,14 +4,21 @@ PostgreSQL 18 en Docker y CI; mínimo soportado 15 por el índice `NULLS NOT DIS
 
 ## Recrear la base local anterior a C3
 
-Se acordó que no hay datos de C2 que conservar. Estos comandos eliminan el volumen local (incluidos usuarios); después hay que crear las cuentas de nuevo con `pnpm auth:set-password <correo> [nombre]`.
+Se acordó que no hay datos de C2 que conservar. Se recrea solo la base afectada, sin tocar las demás del contenedor (no uses `docker compose down -v`, que borra el volumen completo). Recrear la base de desarrollo elimina sus usuarios: después hay que crear las cuentas de nuevo con `pnpm auth:set-password <correo> [nombre]`.
 
 ```bash
-docker compose down -v
-pnpm db:up
+# Base de desarrollo (ajusta el nombre si .env usa otro)
+docker exec moss-db-1 psql -U moss -d postgres -c "DROP DATABASE moss WITH (FORCE)"
+docker exec moss-db-1 psql -U moss -d postgres -c "CREATE DATABASE moss"
 pnpm db:migrate
 pnpm db:seed
+pnpm db:verify
+
+# Base de pruebas, solo si pnpm db:verify falla sobre ella
+docker exec moss-db-1 psql -U moss -d postgres -c "DROP DATABASE moss_test WITH (FORCE)"
+docker exec moss-db-1 psql -U moss -d postgres -c "CREATE DATABASE moss_test"
 DATABASE_URL=postgres://moss:moss@localhost:5432/moss_test pnpm db:migrate
+DATABASE_URL=postgres://moss:moss@localhost:5432/moss_test pnpm db:verify
 ```
 
 El init de Docker crea `moss_test`; ajustar el puerto si `.env` usa otro. Para API e2e y Playwright:
