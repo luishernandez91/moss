@@ -178,6 +178,9 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Precio por tamaño. El costo mostrado viene de D2; la UI no calcula.
     - Pantalla de detalle con selector de tamaño y desglose (heredado en gris, sustituido tachado).
     - `db:seed` agrega productos y recetas del catálogo de ejemplo, de forma idempotente como en C2, y traduce `{tamano}` a `{size}` en los filtros de receta. Empareja tamaños por `size_id`, tanto para el marcador del tamaño producido como para valores literales (`mini`, `chico`, `mediano`, `grande` → claves del catálogo); no depende del atributo `tamano`. Adapta el emparejamiento de D2 a esa dimensión.
+  - Entrega en dos PR (decisión «Productos y recetas (C4)»):
+    - [x] **C4a · Núcleo** (`feat/C4a-products-recipes-core`): D2 por `size_id` y `previewCost`; `product-catalog` en dominio; contratos; migración `0008_products_recipes`; API `/api/products` (árbol por consulta recursiva, costo, precio y margen por tamaño, precios, receta y desglose); `inUse` y borrado protegido de tamaños en las tablas de C4; seed de productos y recetas.
+    - [ ] **C4b · Pantallas 7 y 8** (`feat/C4b-products-screens`, desde `main` con C4a): `/productos` y `/productos/:id` con editor de receta, precios por tamaño, elección de variante en el desglose, Playwright a 1440×900 y 390×844 y revisión visual en `docs/diseno/revisiones/C4/`.
 
 - [ ] **C5 · Extras**
   - Depende: C4

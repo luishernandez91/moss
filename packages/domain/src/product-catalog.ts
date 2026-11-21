@@ -287,12 +287,20 @@ function hasAtMostDecimals(value: number, decimals: number): boolean {
 }
 
 /**
- * Valida el catálogo completo de productos y recetas. Lanza `ProductError` (422) ante lo que D2
- * rechazaría en cualquier tamaño o lo que la base no puede guardar. No lanza por errores que
- * dependen de los datos del catálogo en un tamaño (`NO_COMPONENT_FOR_SIZE`, `NO_MATCHING_VARIANT`,
- * ambigüedad): esos se muestran por tamaño en `assessProductCosts`.
+ * Valida productos y recetas. Lanza `ProductError` (422) ante lo que D2 rechazaría en cualquier
+ * tamaño o lo que la base no puede guardar. No lanza por errores que dependen de los datos del
+ * catálogo en un tamaño (`NO_COMPONENT_FOR_SIZE`, `NO_MATCHING_VARIANT`, ambigüedad): esos se
+ * muestran por tamaño en `assessProductCosts`.
+ *
+ * Nombres y árbol se validan siempre en todo el catálogo. Con `changedIds`, oferta, precios,
+ * componentes y sustituciones se validan solo en esos productos y sus descendientes (los que
+ * heredan el cambio), para que un dato que quedó inválido en otra rama (p. ej. la opción de un
+ * filtro que se quitó) no bloquee escrituras ajenas.
  */
-export function validateProductCatalog(catalog: ProductCatalog): void {
+export function validateProductCatalog(
+  catalog: ProductCatalog,
+  changedIds?: readonly string[],
+): void {
   const { products } = catalog;
   const names = new Map<string, PersistedProduct>();
   for (const product of products) {
@@ -312,7 +320,13 @@ export function validateProductCatalog(catalog: ProductCatalog): void {
 
   for (const product of products) productChain(products, product.id);
 
-  for (const product of products) {
+  const changed = changedIds === undefined ? null : new Set(changedIds);
+  const scoped = products.filter(
+    (product) =>
+      changed === null || productChain(products, product.id).some((level) => changed.has(level.id)),
+  );
+
+  for (const product of scoped) {
     if (product.sizeOffer.mode !== 'explicit') continue;
     const { sizeIds } = product.sizeOffer;
     if (sizeIds.length === 0 || new Set(sizeIds).size !== sizeIds.length) {
@@ -339,7 +353,7 @@ export function validateProductCatalog(catalog: ProductCatalog): void {
     }
   };
 
-  for (const product of products) {
+  for (const product of scoped) {
     const seen = new Set<SizeId>();
     for (const { sizeId, price } of product.prices) {
       if (seen.has(sizeId)) {
@@ -374,7 +388,7 @@ export function validateProductCatalog(catalog: ProductCatalog): void {
     ]);
   }
 
-  for (const product of products) {
+  for (const product of scoped) {
     const own = componentsByProduct.get(product.id) ?? [];
     const keys = new Map<string, PersistedComponent>();
     for (const component of own) {
@@ -391,7 +405,7 @@ export function validateProductCatalog(catalog: ProductCatalog): void {
     }
   }
 
-  validateReplacements(catalog, componentsByProduct);
+  validateReplacements(catalog, scoped, componentsByProduct);
 }
 
 function validateComponent(
@@ -516,9 +530,10 @@ function validateComponent(
 /** Una sustitución apunta a un componente de un ancestro estricto y cada uno se sustituye una vez por rama. */
 function validateReplacements(
   catalog: ProductCatalog,
+  scoped: readonly PersistedProduct[],
   componentsByProduct: ReadonlyMap<string, readonly PersistedComponent[]>,
 ): void {
-  for (const product of catalog.products) {
+  for (const product of scoped) {
     const chain = productChain(catalog.products, product.id);
     const inherited = new Set<string>();
     const replaced = new Map<string, string>();

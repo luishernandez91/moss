@@ -628,7 +628,10 @@ async function seedProducts(
   }
 
   rule('Productos', () => {
-    validateProductCatalog(productCatalog);
+    validateProductCatalog(
+      productCatalog,
+      createdProducts.map((state) => state.product.id),
+    );
     for (const state of createdProducts) assertNewReferencesActive(null, state, productCatalog);
   });
 

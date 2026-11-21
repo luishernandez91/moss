@@ -207,7 +207,7 @@ export class ProductsService {
         prices: [],
       };
       const next = { ...loaded.catalog, products: [...loaded.catalog.products, product] };
-      checkCatalog(null, { product, components: [] }, next);
+      checkCatalog(null, { product, components: [] }, next, product.id);
       await guardWrite(
         () =>
           tx.insert(products).values({
@@ -237,6 +237,7 @@ export class ProductsService {
         { product: current, components: own },
         { product, components: own },
         replaceProduct(loaded.catalog, product),
+        id,
       );
       await guardWrite(
         () =>
@@ -266,6 +267,7 @@ export class ProductsService {
         { product: current, components: own },
         { product, components: own },
         replaceProduct(loaded.catalog, product),
+        id,
       );
       await tx.delete(productPrices).where(eq(productPrices.productId, id));
       if (product.prices.length > 0) {
@@ -334,6 +336,7 @@ export class ProductsService {
             ...next,
           ],
         },
+        id,
       );
 
       if (removed.length > 0) {
@@ -411,13 +414,15 @@ export class ProductsService {
   }
 }
 
+/** Valida el producto que cambia (y lo que hereda de él) y sus referencias nuevas. */
 function checkCatalog(
   before: Parameters<typeof assertNewReferencesActive>[0],
   after: Parameters<typeof assertNewReferencesActive>[1],
   next: ProductCatalog,
+  productId: string,
 ): void {
   runDomainRule(ProductError, () => {
-    validateProductCatalog(next);
+    validateProductCatalog(next, [productId]);
     assertNewReferencesActive(before, after, next);
   });
 }

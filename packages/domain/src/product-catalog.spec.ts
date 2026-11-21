@@ -513,6 +513,31 @@ describe('validateProductCatalog', () => {
     );
   });
 
+  it('con alcance: valida el producto que cambia y sus descendientes; árbol y nombres, siempre', () => {
+    // Un filtro que quedó inválido (p. ej. se quitó la opción) en Cactus no bloquea otros productos.
+    const components = samplePersistedComponents.map((component) =>
+      component.id === 'cm-maceta' && component.kind === 'article'
+        ? { ...component, attributeFilter: { forma: 'ovalada', diametro: 8 } }
+        : component,
+    );
+    const catalog = sampleProductCatalog({ components });
+    expect(() => validateProductCatalog(catalog, ['kokedama-nochebuena'])).not.toThrow();
+    expectError(
+      () => validateProductCatalog(catalog, ['planta-en-maceta']),
+      'INVALID_ATTRIBUTE_FILTER',
+    );
+    expectError(() => validateProductCatalog(catalog), 'INVALID_ATTRIBUTE_FILTER');
+    const renamed = sampleProductCatalog({
+      products: samplePersistedProducts.map((candidate) =>
+        candidate.id === 'kokedama' ? { ...candidate, name: 'Planta en maceta' } : candidate,
+      ),
+    });
+    expectError(
+      () => validateProductCatalog(renamed, ['kokedama-helecho']),
+      'DUPLICATE_PRODUCT_NAME',
+    );
+  });
+
   it('cambiar el padre que rompe una sustitución se rechaza', () => {
     const products = samplePersistedProducts.map((candidate) =>
       candidate.id === 'kokedama-helecho'
