@@ -58,6 +58,7 @@ pnpm lint               # oxlint
 pnpm typecheck          # tsc --noEmit en todos los paquetes
 pnpm format             # Prettier
 pnpm db:generate        # genera migración desde src/database/schema.ts
+pnpm db:verify          # compara las migraciones aplicadas en DATABASE_URL contra el journal
 pnpm db:seed            # carga artículos/variantes y size_id; recetas llegan en C4
 ```
 
@@ -65,7 +66,9 @@ pnpm db:seed            # carga artículos/variantes y size_id; recetas llegan e
 
 **Antes de dar una tarea por terminada:** `pnpm typecheck && pnpm lint && pnpm test` sin errores. Si tocaste pantallas, también `pnpm e2e` para el flujo afectado.
 
-C3 requiere recrear la base local anterior; no convierte datos de C2. Procedimiento: `docs/tamanos.md`. Docker y CI fijan PostgreSQL 18; la migración C3 rechaza versiones menores a 15.
+C3 requiere recrear la base local anterior; no convierte datos de C2. Procedimiento: `docs/tamanos.md`.
+
+**Después de un rebase que renumere migraciones**, corre `pnpm db:verify` en cada base local (desarrollo y test, con `DATABASE_URL=...` para la de test). Drizzle solo aplica migraciones posteriores a la última registrada, así que una base migrada antes del rebase puede saltarse una sin error. Si `db:verify` falla, recrea solo esa base (`DROP DATABASE` y `CREATE DATABASE`, como en `docs/tamanos.md`) y vuelve a migrar. CI corre `pnpm db:verify` después de `pnpm db:migrate`. Docker y CI fijan PostgreSQL 18; la migración C3 rechaza versiones menores a 15.
 
 ## Reglas de dominio que no se negocian
 
@@ -105,7 +108,7 @@ Textos visibles para el usuario: español de México, montos como `$1,540.00`, f
 3. Cambios pequeños y verificables. Un PR por historia, rama `feat/<id>-<slug>` (ej. `feat/D2-cost-resolution`).
 4. Commits en formato Conventional Commits, en inglés: `feat(domain): resolve inherited recipe costs`.
 5. Al terminar, marca la historia en `backlog.md` y anota cualquier decisión nueva en `docs/decisiones.md`.
-6. CI es el job `check` de GitHub Actions (`.github/workflows/ci.yml`); corre en cada push a `main` y en cada PR. Antes de reportar, revisa su estado con `gh pr checks <número>`.
+6. CI es el job `check` de GitHub Actions (`.github/workflows/ci.yml`); corre en cada push a `main` y en cada PR. Antes de reportar, revisa su estado con `gh pr checks <número>`. Después de `pnpm db:migrate`, CI corre `pnpm db:generate` y falla si aparece o cambia algún archivo en `apps/api/drizzle/`: si cambias `schema.ts`, genera la migración y commitéala en el mismo PR.
 7. Al terminar una historia: abrir PR hacia main, esperar CI aprobado y reportar. Nunca fusionar sin autorización explícita.
 
 ## Límites

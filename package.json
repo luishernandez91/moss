@@ -21,6 +21,7 @@
     "db:down": "docker compose down",
     "db:generate": "pnpm build:packages && pnpm --filter api db:generate",
     "db:migrate": "pnpm --filter api db:migrate",
+    "db:verify": "pnpm build:packages && pnpm --filter api build && pnpm --filter api db:verify",
     "db:seed": "pnpm build:packages && pnpm --filter api build && pnpm --filter api db:seed"
   },
   "devDependencies": {

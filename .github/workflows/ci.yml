@@ -43,6 +43,20 @@ jobs:
       - name: PostgreSQL >=15
         run: test "$(psql "$DATABASE_URL" -Atc 'SHOW server_version_num')" -ge 150000
       - run: pnpm db:migrate
+      # El historial aplicado debe coincidir con el journal: misma cantidad, orden y hash.
+      - run: pnpm db:verify
+      # Con las migraciones aplicadas, schema.ts no debe producir una migración nueva ni cambiar
+      # las existentes: si lo hace, falta generar y commitear la migración.
+      - name: Sin drift entre schema.ts y las migraciones
+        run: |
+          pnpm db:generate
+          drift="$(git status --porcelain -- apps/api/drizzle)"
+          if [ -n "$drift" ]; then
+            echo "::error::schema.ts no coincide con las migraciones. Corre pnpm db:generate y commitea el resultado."
+            echo "$drift"
+            git diff -- apps/api/drizzle
+            exit 1
+          fi
       - run: pnpm --filter api test:e2e
       - run: pnpm --filter web exec playwright install --with-deps chromium
       - run: pnpm e2e
