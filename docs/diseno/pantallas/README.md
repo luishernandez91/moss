@@ -50,6 +50,10 @@ Componentes compartidos en `componentes/`: `menu-lateral.png` (navegación deskt
 | 04 | La pastilla «Diámetro: 10 cm» aparece sin forma de agregarla | Al elegir un tipo aparece «Filtrar por atributo» (diálogo de atributo y valor) y «Con existencia» |
 | 05 (mobile) | Barra superior «‹ Artículo» con lápiz | Enlace «‹ Catálogo» y menú «Acciones del artículo» dentro de la página; la barra superior es la del shell |
 | 03 | Se puede agregar cualquier atributo a un tipo | Limitación de C2: un tipo con artículos no puede ganar un atributo requerido ni uno de variante (409 `ATTRIBUTE_VALUES_MISSING`). Se crea opcional y se llena; el de variante con valor por defecto queda para C6 |
+| 03 | Sin interruptor de tamaño | C3 agrega «Usa tamaño» al diálogo y estado en el tipo; bloqueado con artículos existentes |
+| 04 | Sin filtro global de tamaño | C3 agrega selector; los desactivados solo aparecen si están en uso |
+| 05 | Solo columnas de atributos | C3 agrega Tamaño como primera columna (primer dato en tarjeta móvil) si el tipo lo usa; selector condicional en diálogos |
+| 24 | Acceso a Tamaños, sin diseño de su editor | C3 usa `/configuracion/tamanos`: lista ordenada con nombre, estado, uso y botones Subir/Bajar/Editar/Desactivar/Borrar; filas apiladas en móvil. Configuración abre esta sección hasta S2; el resto sigue pendiente |
 | 24 | Tarjeta «Tipos de campaña» con el interruptor «No permitir empalme dentro del mismo tipo» | El empalme siempre se impide dentro del mismo tipo y no es configurable (§7, pantalla 24): la interfaz no lleva ese interruptor |
 | 22 | Importes y campañas de ejemplo; texto «Trabajo» abreviado en móvil | S1 muestra montos sin datos y estado vacío hasta K7; usa «Trabajo pagado» explícito y navegación MVP. Comparación: [revisión S1](../revisiones/S1/README.md) |
 
@@ -66,3 +70,5 @@ El historial de costo del artículo anterior se conserva en el desactivado.
 Las pantallas 13, 14, 17 y 22 se regeneraron el 11 nov 2026 con la inversión por socio y el reparto 50/50 (ver `docs/decisiones.md`).
 
 Si regeneras una pantalla, reemplaza ambos archivos con el mismo nombre y borra su fila de esta tabla cuando ya no haya diferencias.
+
+Revisión C3 a 1440 y 390 px: [capturas y comparación](../revisiones/C3/README.md).

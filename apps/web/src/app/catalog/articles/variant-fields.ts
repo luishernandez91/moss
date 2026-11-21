@@ -1,3 +1,4 @@
+import type { Size } from '@moss/contracts';
 import { ChangeDetectionStrategy, Component, input, model } from '@angular/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -6,6 +7,7 @@ import { AttributeFields, type AttributeFieldDefinition } from './attribute-fiel
 
 /** Lo que se captura de una variante, como texto en los campos de dinero y existencia. */
 export interface VariantDraft {
+  sizeId: string | null;
   sku: string;
   attributes: Record<string, unknown>;
   averageCost: string;
@@ -14,6 +16,7 @@ export interface VariantDraft {
 }
 
 export const EMPTY_VARIANT: VariantDraft = {
+  sizeId: null,
   sku: '',
   attributes: {},
   averageCost: '',
@@ -27,6 +30,30 @@ export const EMPTY_VARIANT: VariantDraft = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatFormFieldModule, MatInputModule, AttributeFields],
   template: `
+    @if (usesSize()) {
+      <mat-form-field appearance="outline"
+        ><mat-label>Tamaño</mat-label>
+        <select
+          matNativeControl
+          aria-label="Tamaño"
+          [value]="draft().sizeId ?? ''"
+          (change)="patch({ sizeId: $any($event.target).value || null })"
+        >
+          <option value="">Elige un tamaño</option>
+          @for (size of sizes(); track size.id) {
+            @if (size.active || size.id === currentSizeId()) {
+              <option [value]="size.id" [selected]="size.id === draft().sizeId">
+                {{ size.label }}{{ size.active ? '' : ' (desactivado)' }}
+              </option>
+            }
+          }
+        </select>
+        @if (errors()['sizeId']) {
+          <span class="error" role="alert">{{ errors()['sizeId'] }}</span>
+        }
+      </mat-form-field>
+    }
+
     <mat-form-field appearance="outline">
       <mat-label>SKU</mat-label>
       <input
@@ -117,6 +144,9 @@ export const EMPTY_VARIANT: VariantDraft = {
   `,
 })
 export class VariantFields {
+  readonly usesSize = input(false);
+  readonly sizes = input<readonly Size[]>([]);
+  readonly currentSizeId = input<string | null>(null);
   readonly definitions = input.required<readonly AttributeFieldDefinition[]>();
   readonly unit = input.required<StockUnit>();
   readonly draft = model.required<VariantDraft>();

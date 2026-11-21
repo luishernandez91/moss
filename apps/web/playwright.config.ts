@@ -18,13 +18,13 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop',
-      testIgnore: '**/partners.spec.ts',
+      testIgnore: ['**/partners.spec.ts', '**/sizes.spec.ts'],
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
     // Pixel 7 (táctil, móvil) con el ancho de referencia de 390 px de CLAUDE.md.
     {
       name: 'mobile',
-      testIgnore: '**/partners.spec.ts',
+      testIgnore: ['**/partners.spec.ts', '**/sizes.spec.ts'],
       use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } },
     },
     {
@@ -39,6 +39,22 @@ export default defineConfig({
       name: 'partners-mobile',
       testMatch: '**/partners.spec.ts',
       dependencies: ['partners-desktop'],
+      fullyParallel: false,
+      workers: 1,
+      use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } },
+    },
+    {
+      name: 'sizes-desktop',
+      testMatch: '**/sizes.spec.ts',
+      dependencies: ['partners-mobile'],
+      fullyParallel: false,
+      workers: 1,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: 'sizes-mobile',
+      testMatch: '**/sizes.spec.ts',
+      dependencies: ['sizes-desktop'],
       fullyParallel: false,
       workers: 1,
       use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } },

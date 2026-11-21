@@ -4,7 +4,7 @@ import { Shell } from './core/shell/shell';
 import { NAV_ITEMS } from './core/navigation';
 
 /** Pantallas con historia implementada; el resto muestra la página provisional. */
-const IMPLEMENTED = ['inicio', 'tipos-de-articulo', 'catalogo', 'socios'];
+const IMPLEMENTED = ['inicio', 'tipos-de-articulo', 'catalogo', 'socios', 'configuracion'];
 
 const pendingRoutes: Routes = NAV_ITEMS.filter((item) => !IMPLEMENTED.includes(item.path)).map(
   (item) => ({
@@ -53,6 +53,12 @@ export const routes: Routes = [
         path: 'socios',
         title: 'Socios · Moss & Roots',
         loadComponent: () => import('./partners/partners-page').then((m) => m.PartnersPage),
+      },
+      { path: 'configuracion', pathMatch: 'full', redirectTo: 'configuracion/tamanos' },
+      {
+        path: 'configuracion/tamanos',
+        title: 'Tamaños · Moss & Roots',
+        loadComponent: () => import('./catalog/sizes/sizes-page').then((m) => m.SizesPage),
       },
       ...pendingRoutes,
       {

@@ -25,6 +25,7 @@ export const STOCK_MAX = 999_999_999.999;
 export type AttributeValues = Readonly<Record<string, AttributeValue>>;
 
 export interface ExistingVariant {
+  sizeId?: string | null;
   id: string;
   sku: string;
   attributes: AttributeValues;
@@ -84,25 +85,28 @@ export function validateStock(stock: number): number {
 }
 
 /** Clave canónica de una combinación: claves ordenadas y valores con su tipo. */
-export function combinationKey(attributes: AttributeValues): string {
+export function combinationKey(attributes: AttributeValues, sizeId: string | null = null): string {
   const sorted = Object.keys(attributes)
     .sort()
     .map((key) => [key, attributes[key]] as const);
-  return JSON.stringify(Object.fromEntries(sorted));
+  return JSON.stringify([sizeId, Object.fromEntries(sorted)]);
 }
 
 /**
  * Variante del mismo artículo con la misma combinación, activa o no. `excludeId` omite la variante
- * que se edita. Un artículo sin atributos de variante admite una sola variante `{}`.
+ * que se edita. Sin tamaño ni atributos de variante se admite una sola variante `{}`; con tamaño, una por tamaño.
  */
 export function findDuplicateCombination(
   attributes: AttributeValues,
   variants: readonly ExistingVariant[],
   excludeId?: string,
+  sizeId: string | null = null,
 ): ExistingVariant | undefined {
-  const key = combinationKey(attributes);
+  const key = combinationKey(attributes, sizeId);
   return variants.find(
-    (variant) => variant.id !== excludeId && combinationKey(variant.attributes) === key,
+    (variant) =>
+      variant.id !== excludeId &&
+      combinationKey(variant.attributes, variant.sizeId ?? null) === key,
   );
 }
 

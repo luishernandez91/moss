@@ -36,6 +36,13 @@
       "when": 1795112613995,
       "tag": "0004_articles",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795206304626,
+      "tag": "0005_sizes",
+      "breakpoints": true
     }
   ]
 }

@@ -118,6 +118,7 @@ const attributeValues = z.record(z.string(), z.unknown());
 const stock = z.number().min(0, 'La existencia no puede ser negativa.');
 
 export const createVariantSchema = z.strictObject({
+  sizeId: z.uuid().nullable().default(null),
   sku,
   attributes: attributeValues.default({}),
   averageCost: nonNegativeCents,
@@ -155,6 +156,7 @@ export type UpdateArticle = z.infer<typeof updateArticleSchema>;
 
 export const updateVariantSchema = z
   .strictObject({
+    sizeId: z.uuid().nullable().optional(),
     sku: sku.optional(),
     attributes: attributeValues.optional(),
     averageCost: nonNegativeCents.optional(),
@@ -182,6 +184,7 @@ const attributeFilter = z.string().transform((raw, context) => {
 
 export const articleListQuerySchema = z
   .object({
+    sizeId: z.uuid().optional(),
     typeId: z.uuid('Identificador inválido.').optional(),
     q: z.string().trim().max(100).optional(),
     inStock: flag.optional(),
@@ -206,6 +209,7 @@ export const variantParamsSchema = z.object({
 const attributeValueSchema = z.union([z.string(), z.number(), z.boolean()]);
 
 export const variantSchema = z.object({
+  sizeId: z.uuid().nullable(),
   id: z.uuid(),
   sku: z.string(),
   attributes: z.record(z.string(), attributeValueSchema),
@@ -219,7 +223,7 @@ export type ArticleVariant = z.infer<typeof variantSchema>;
 const articleBase = {
   id: z.uuid(),
   name: z.string(),
-  articleType: z.object({ id: z.uuid(), name: z.string() }),
+  articleType: z.object({ id: z.uuid(), name: z.string(), usesSize: z.boolean() }),
   stockUnit: stockUnitSchema,
   sold: z.boolean(),
   usedInRecipes: z.boolean(),
@@ -239,7 +243,7 @@ export const articleDetailSchema = z.object({
   ...articleBase,
   description: z.string().nullable(),
   fixedAttributes: z.record(z.string(), attributeValueSchema),
-  /** Activas e inactivas, en orden de creación. */
+  /** Activas e inactivas, por orden de tamaño y luego de creación. */
   variants: z.array(variantSchema),
 });
 export type ArticleDetail = z.infer<typeof articleDetailSchema>;

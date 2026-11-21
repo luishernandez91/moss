@@ -76,7 +76,13 @@ describe('tipos de artículo y atributos (PostgreSQL real)', () => {
 
   it('crea, lista, renombra y borra un tipo', async () => {
     const id = await createType('Maceta');
-    expect(await listed(id)).toEqual({ id, name: `${prefix} Maceta`, attributes: [] });
+    expect(await listed(id)).toEqual({
+      id,
+      name: `${prefix} Maceta`,
+      attributes: [],
+      usesSize: false,
+      articleCount: 0,
+    });
 
     const renamed = await patch(`/api/article-types/${id}`, { name: `  ${prefix} Macetas ` });
     expect(renamed.status).toBe(200);

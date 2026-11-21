@@ -84,6 +84,9 @@
             <table>
               <thead>
                 <tr>
+                  @if (article.articleType.usesSize) {
+                    <th>Tamaño</th>
+                  }
                   <th>SKU</th>
                   @for (attribute of variantAttributes(); track attribute.key) {
                     <th>{{ attribute.name }}</th>
@@ -101,6 +104,9 @@
                     [class.inactive]="!variant.active"
                     (click)="select(variant)"
                   >
+                    @if (article.articleType.usesSize) {
+                      <td>{{ sizeLabel(variant.sizeId) }}</td>
+                    }
                     <td class="mono">
                       {{ variant.sku }}
                       @if (!variant.active) {
@@ -159,6 +165,9 @@
                 [class.inactive]="!variant.active"
                 (click)="select(variant)"
               >
+                @if (article.articleType.usesSize) {
+                  <strong>{{ sizeLabel(variant.sizeId) }}</strong>
+                }
                 <div class="variant-top">
                   <strong class="mono">{{ variant.sku }}</strong>
                   @if (!variant.active) {

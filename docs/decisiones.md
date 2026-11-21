@@ -248,3 +248,13 @@ Registro breve de decisiones. Una entrada por decisión, la más reciente arriba
 
 - **Decisión:** identificadores, tablas y commits en inglés; textos de UI y documentación en español. El glosario de `AGENTS.md` es la referencia de traducción.
 - **Consecuencias:** la especificación usa nombres en español; al implementar, traducir con el glosario y no inventar sinónimos.
+
+## 2026-11-20 · Tamaños globales (C3)
+
+- **Contexto:** el catálogo de tamaños y el atributo `tamano` de Planta duplicaban la misma dimensión; C3 solo describía un CRUD. Diseño aprobado con Mini y sin conversión de datos existentes.
+- **Decisión:** `sizes(id, key, label, sort_order, active)`, clave única e inmutable en inglés; `article_types.uses_size` y `article_variants.size_id` nullable con FK RESTRICT. El dominio exige presencia o ausencia según tipo; un cambio de bandera con artículos, incluso inactivos, da 409 `ARTICLE_TYPE_IN_USE`. C6 incorporará activación con tamaño por defecto.
+- **Unicidad:** combinación `(article_id, size_id, attributes)` con `NULLS NOT DISTINCT`, incluidas inactivas, y clave canónica equivalente en dominio. PostgreSQL mínimo 15, fijado en 18 para Docker/CI. Tamaño editable; sin otros atributos hay una variante manual por tamaño, sin generación automática.
+- **Escrituras:** bloqueo asesor transaccional común en API y seed para evitar carreras entre cambios de tipo, tamaños y variantes. Reordenamiento de la lista completa en una transacción; `sort_order` no único y desempate por ID, sin necesidad de `DEFERRABLE`. No se agrega trigger: API/seed son los escritores soportados; reconsiderarlo si aparecen importadores o SQL directo de negocio (límites en `docs/tamanos.md`).
+- **Desactivados:** renombrar/desactivar siempre permitido; borrado en uso 409 `SIZE_IN_USE`, contando referencias inactivas. Filtros muestran desactivados solo si están en uso. Nuevas asignaciones a activos; edición conserva un tamaño desactivado ya asignado.
+- **Seed:** nueva migración siembra `mini`, `small`, `medium`, `large`; el seed extrae `tamano` hacia `size_id` sin crear el atributo. Solo Planta usa tamaño en el JSON; Maceta conserva diámetro. No hay conversión ni conservación de datos de C2: se recrea la base local según `docs/tamanos.md`. Recetas y traducción `{tamano}`/literales por `size_id` siguen en C4; las pruebas C3 verifican sus referencias contra los IDs sembrados.
+- **UI:** sección Tamaños en Configuración, lista adaptable con orden y estado; indicador e interruptor en tipos; filtro y selectores condicionales; tamaño primero en variantes. Desviaciones respecto de 03–05 y 24 en el README de pantallas.

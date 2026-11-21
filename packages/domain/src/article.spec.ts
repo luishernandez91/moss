@@ -74,7 +74,7 @@ describe('combinaciones de variante', () => {
       combinationKey({ diametro: 8, forma: 'redonda' }),
     );
     expect(combinationKey({ diametro: 8 })).not.toBe(combinationKey({ diametro: '8' }));
-    expect(combinationKey({})).toBe('{}');
+    expect(combinationKey({})).toBe('[null,{}]');
   });
 
   it('encuentra la primera combinación repetida, incluidas las variantes inactivas', () => {

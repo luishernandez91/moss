@@ -9,6 +9,8 @@ import { ArticleDetailPage } from './article-detail-page';
 
 const typeId = '00000000-0000-4000-8000-000000000001';
 const maceta: ArticleType = {
+  usesSize: false,
+  articleCount: 0,
   id: typeId,
   name: 'Maceta',
   attributes: [
@@ -62,7 +64,7 @@ const article: ArticleDetail = {
   id: '00000000-0000-4000-8000-0000000000a1',
   name: 'Maceta de concreto',
   description: null,
-  articleType: { id: typeId, name: 'Maceta' },
+  articleType: { usesSize: false, id: typeId, name: 'Maceta' },
   stockUnit: 'piece',
   sold: true,
   usedInRecipes: true,
@@ -71,6 +73,7 @@ const article: ArticleDetail = {
   variants: [
     {
       id: '00000000-0000-4000-8000-0000000000b1',
+      sizeId: null,
       sku: 'MAC-CON-R08-GR',
       attributes: { forma: 'redonda', diametro: 8 },
       averageCost: 1500,
@@ -80,6 +83,7 @@ const article: ArticleDetail = {
     },
     {
       id: '00000000-0000-4000-8000-0000000000b2',
+      sizeId: null,
       sku: 'MAC-CON-R10-GR',
       attributes: { forma: 'redonda', diametro: 10 },
       averageCost: 1800,
@@ -126,6 +130,7 @@ async function setup(desktop: boolean) {
   TestBed.tick();
   const http = TestBed.inject(HttpTestingController);
   http.expectOne(`/api/articles/${article.id}`).flush(article);
+  http.expectOne('/api/sizes').flush([]);
   http.expectOne('/api/article-types').flush([maceta]);
   // Con el artículo cargado se pide el historial de la primera variante; whenStable lo esperaría.
   await new Promise((resolve) => setTimeout(resolve));

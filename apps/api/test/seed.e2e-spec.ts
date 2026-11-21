@@ -56,7 +56,9 @@ describe('db:seed con el catálogo de ejemplo (PostgreSQL real)', () => {
 
   const expectedAttributes = specCatalog.tipos_articulo.reduce(
     (sum, type) =>
-      sum + type.atributos.filter((attribute) => attribute.nombre !== 'unidad_consumo').length,
+      sum +
+      type.atributos.filter((attribute) => !['unidad_consumo', 'tamano'].includes(attribute.nombre))
+        .length,
     0,
   );
   const expectedVariants = specCatalog.articulos.reduce(
@@ -87,6 +89,71 @@ describe('db:seed con el catálogo de ejemplo (PostgreSQL real)', () => {
     expect(second.defaultedToPiece).toEqual([]);
     expect(second.created).toEqual({ articleTypes: 0, attributes: 0, articles: 0, variants: 0 });
     expect(second.existing).toEqual(first.created);
+  });
+
+  it('siembra size_id sin tamano y mantiene referencias de recetas por tamaño', async () => {
+    const prefix = nextPrefix();
+    const catalog = isolated(prefix);
+    await seedCatalog(db, catalog);
+    await seedCatalog(db, catalog);
+    const types = await db
+      .select()
+      .from(articleTypes)
+      .where(like(articleTypes.name, `${prefix}%`));
+    expect(types.filter((t) => t.usesSize).map((t) => t.name)).toEqual([`${prefix} Planta`]);
+    const variants = await db
+      .select({
+        sku: articleVariants.sku,
+        sizeId: articleVariants.sizeId,
+        attributes: articleVariants.attributes,
+        historyId: variantCostChanges.id,
+      })
+      .from(articleVariants)
+      .innerJoin(articles, eq(articles.id, articleVariants.articleId))
+      .innerJoin(variantCostChanges, eq(variantCostChanges.variantId, articleVariants.id))
+      .where(like(articles.name, `${prefix}%`));
+    expect(variants).toHaveLength(expectedVariants);
+    expect(variants.filter((v) => v.sizeId !== null)).toHaveLength(11);
+    expect(variants.every((v) => !('tamano' in v.attributes))).toBe(true);
+    const sizes = await db.select().from(schema.sizes);
+    const mapping: Record<string, string> = {
+      mini: 'mini',
+      chico: 'small',
+      mediano: 'medium',
+      grande: 'large',
+    };
+    for (const product of specCatalog.productos ?? []) {
+      for (const component of product.componentes) {
+        if (
+          !('filtro_atributos' in component) ||
+          !component.filtro_atributos ||
+          !('tamano' in component.filtro_atributos)
+        )
+          continue;
+        const raw = component.filtro_atributos.tamano;
+        const required = raw === '{tamano}' ? ['chico', 'mediano'] : [String(raw)];
+        const source = catalog.articulos.find((a) => a.id === component.articulo_id)!;
+        for (const value of required) {
+          const size = sizes.find((s) => s.key === mapping[value])!;
+          expect(size).toBeDefined();
+          expect(
+            variants.some(
+              (v) => v.sizeId === size.id && source.variantes.some((s) => s.sku === v.sku),
+            ),
+          ).toBe(true);
+        }
+      }
+    }
+    const defs = await db
+      .select()
+      .from(schema.attributes)
+      .where(
+        inArray(
+          schema.attributes.articleTypeId,
+          types.map((t) => t.id),
+        ),
+      );
+    expect(defs.some((a) => a.key === 'tamano')).toBe(false);
   });
 
   it('traduce la unidad, las etiquetas, los enums y los montos de la especificación', async () => {

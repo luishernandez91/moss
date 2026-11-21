@@ -54,7 +54,7 @@ export interface WriteGuards {
    * devuelva la función según la restricción violada.
    */
   unique?: ApiError | ((constraint: string | undefined) => ApiError);
-  /** 23503: el registro padre se borró entre la validación y la escritura. */
+  /** 23503/23001: referencia inválida o borrado RESTRICT; el registro padre se borró entre la validación y la escritura. */
   foreignKey?: () => HttpException;
 }
 
@@ -74,7 +74,7 @@ export async function guardWrite<T>(action: () => Promise<T>, guards: WriteGuard
           : guards.unique;
       throw new ConflictException(body);
     }
-    if (code === '23503' && guards.foreignKey) throw guards.foreignKey();
+    if ((code === '23503' || code === '23001') && guards.foreignKey) throw guards.foreignKey();
     throw error;
   }
 }

@@ -40,7 +40,7 @@ export class ArticleTypesController {
 
   @Post()
   create(@Body({ schema: createArticleTypeSchema }) body: CreateArticleType): Promise<ArticleType> {
-    return this.service.createType(body.name);
+    return this.service.createType(body.name, body.usesSize);
   }
 
   @Patch(':id')
@@ -48,7 +48,7 @@ export class ArticleTypesController {
     @Param({ schema: articleTypeParamsSchema }) params: TypeParams,
     @Body({ schema: updateArticleTypeSchema }) body: UpdateArticleType,
   ): Promise<Omit<ArticleType, 'attributes'>> {
-    return this.service.renameType(params.id, body.name);
+    return this.service.renameType(params.id, body.name, body.usesSize);
   }
 
   @Delete(':id')

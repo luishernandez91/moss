@@ -1,3 +1,5 @@
+import { catalogWrite } from './catalog-write.js';
+import { SizeError, assertSizeRequirement, assertSizeAssignment } from '@moss/domain';
 import {
   Inject,
   Injectable,
@@ -40,6 +42,7 @@ import {
   articles,
   attributes,
   partners,
+  sizes,
   variantCostChanges,
 } from '../database/schema.js';
 
@@ -47,6 +50,7 @@ type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
 type Executor = Database | Transaction;
 
 const variantFields = {
+  sizeId: articleVariants.sizeId,
   id: articleVariants.id,
   sku: articleVariants.sku,
   attributes: articleVariants.attributes,
@@ -67,6 +71,7 @@ const articleFields = {
   fixedAttributes: articles.fixedAttributes,
   articleTypeId: articleTypes.id,
   articleTypeName: articleTypes.name,
+  usesSize: articleTypes.usesSize,
 };
 
 const notFound = (code: string, message: string) => new NotFoundException({ code, message });
@@ -135,13 +140,14 @@ export class ArticlesService {
     if (Object.keys(fixed).length > 0) {
       conditions.push(sql`${articles.fixedAttributes} @> ${JSON.stringify(fixed)}::jsonb`);
     }
-    if (Object.keys(variant).length > 0 || query.inStock) {
+    if (Object.keys(variant).length > 0 || query.inStock || query.sizeId) {
       // Una misma variante activa debe cumplir los filtros de variante y, si se pide, tener existencia.
       conditions.push(sql`EXISTS (
         SELECT 1 FROM ${articleVariants}
         WHERE ${articleVariants.articleId} = ${articles.id}
           AND ${articleVariants.active}
           AND ${articleVariants.attributes} @> ${JSON.stringify(variant)}::jsonb
+          ${query.sizeId ? sql`AND ${articleVariants.sizeId} = ${query.sizeId}` : sql``}
           ${query.inStock ? sql`AND ${articleVariants.stock} > 0` : sql``}
       )`);
     }
@@ -168,6 +174,7 @@ export class ArticlesService {
         active: articles.active,
         articleTypeId: articleTypes.id,
         articleTypeName: articleTypes.name,
+        usesSize: articleTypes.usesSize,
         variantCount: activeVariants.variantCount,
         costFrom: activeVariants.costFrom,
         totalStock: activeVariants.totalStock,
@@ -179,9 +186,17 @@ export class ArticlesService {
       .orderBy(sql`lower(${articles.name})`, asc(articles.id));
 
     return rows.map(
-      ({ articleTypeId, articleTypeName, variantCount, costFrom, totalStock, ...row }) => ({
+      ({
+        articleTypeId,
+        articleTypeName,
+        usesSize,
+        variantCount,
+        costFrom,
+        totalStock,
+        ...row
+      }) => ({
         ...row,
-        articleType: { id: articleTypeId, name: articleTypeName },
+        articleType: { id: articleTypeId, name: articleTypeName, usesSize },
         variantCount: variantCount ?? 0,
         costFrom: costFrom === null ? null : Number(costFrom),
         totalStock: Number(totalStock ?? 0),
@@ -199,15 +214,23 @@ export class ArticlesService {
     const variants = await this.db
       .select(variantFields)
       .from(articleVariants)
+      .leftJoin(sizes, eq(sizes.id, articleVariants.sizeId))
       .where(eq(articleVariants.articleId, id))
-      .orderBy(asc(articleVariants.createdAt), asc(articleVariants.id));
-    const { articleTypeId, articleTypeName, ...rest } = article;
-    return { ...rest, articleType: { id: articleTypeId, name: articleTypeName }, variants };
+      .orderBy(asc(sizes.sortOrder), asc(articleVariants.createdAt), asc(articleVariants.id));
+    const { articleTypeId, articleTypeName, usesSize, ...rest } = article;
+    return {
+      ...rest,
+      articleType: { id: articleTypeId, name: articleTypeName, usesSize },
+      variants,
+    };
   }
 
-  async create(input: CreateArticle, partnerId: string): Promise<ArticleDetail> {
+  create(input: CreateArticle, partnerId: string): Promise<ArticleDetail> {
+    return catalogWrite(this.db, (tx) => new ArticlesService(tx).createLocked(input, partnerId));
+  }
+  private async createLocked(input: CreateArticle, partnerId: string): Promise<ArticleDetail> {
     const [type] = await this.db
-      .select({ id: articleTypes.id })
+      .select({ id: articleTypes.id, usesSize: articleTypes.usesSize })
       .from(articleTypes)
       .where(eq(articleTypes.id, input.articleTypeId));
     if (!type) throw typeNotFound();
@@ -218,16 +241,22 @@ export class ArticlesService {
     ]);
 
     const prepared: (ExistingVariant & Omit<CreateVariant, 'sku' | 'attributes'>)[] = [];
-    input.variants.forEach((variant, index) => {
+    for (const [index, variant] of input.variants.entries()) {
+      await this.validateSize(type.usesSize, variant.sizeId);
       const next = this.prepareVariant(definitions, variant, ['variants', index, 'attributes']);
       runDomainRule(ArticleError, () => {
         const sameSku = prepared.find((other) => other.sku === next.sku);
         if (sameSku) throw duplicateSkuError(sameSku);
-        const sameCombination = findDuplicateCombination(next.attributes, prepared);
+        const sameCombination = findDuplicateCombination(
+          next.attributes,
+          prepared,
+          undefined,
+          next.sizeId,
+        );
         if (sameCombination) throw duplicateCombinationError(sameCombination);
       });
       prepared.push({ ...next, id: `nuevo-${index}`, active: true });
-    });
+    }
     await this.assertSkusAvailable(prepared.map((variant) => variant.sku));
 
     const articleId = await guardWrite(
@@ -280,16 +309,27 @@ export class ArticlesService {
     return this.detail(id);
   }
 
-  async addVariant(
+  addVariant(articleId: string, input: CreateVariant, partnerId: string): Promise<ArticleVariant> {
+    return catalogWrite(this.db, (tx) =>
+      new ArticlesService(tx).addVariantLocked(articleId, input, partnerId),
+    );
+  }
+  private async addVariantLocked(
     articleId: string,
     input: CreateVariant,
     partnerId: string,
   ): Promise<ArticleVariant> {
     const article = await this.detail(articleId);
     const definitions = await this.definitions(this.db, article.articleType.id);
+    await this.validateSize(article.articleType.usesSize, input.sizeId);
     const next = this.prepareVariant(definitions, input, ['attributes']);
     runDomainRule(ArticleError, () => {
-      const duplicate = findDuplicateCombination(next.attributes, article.variants);
+      const duplicate = findDuplicateCombination(
+        next.attributes,
+        article.variants,
+        undefined,
+        next.sizeId,
+      );
       if (duplicate) throw duplicateCombinationError(duplicate);
     });
     await this.assertSkusAvailable([next.sku]);
@@ -299,7 +339,17 @@ export class ArticlesService {
     );
   }
 
-  async updateVariant(
+  updateVariant(
+    articleId: string,
+    variantId: string,
+    patch: UpdateVariant,
+    partnerId: string,
+  ): Promise<ArticleVariant> {
+    return catalogWrite(this.db, (tx) =>
+      new ArticlesService(tx).updateVariantLocked(articleId, variantId, patch, partnerId),
+    );
+  }
+  private async updateVariantLocked(
     articleId: string,
     variantId: string,
     patch: UpdateVariant,
@@ -308,16 +358,24 @@ export class ArticlesService {
     const article = await this.detail(articleId);
     const current = article.variants.find((variant) => variant.id === variantId);
     if (!current) throw variantNotFound();
+    const sizeId = patch.sizeId === undefined ? current.sizeId : patch.sizeId;
+    await this.validateSize(article.articleType.usesSize, sizeId, current.sizeId);
     const changes: Partial<typeof articleVariants.$inferInsert> = {};
+    if (patch.sizeId !== undefined) changes.sizeId = sizeId;
     if (patch.sku !== undefined) {
       changes.sku = runDomainRule(ArticleError, () => normalizeSku(patch.sku!));
       if (changes.sku !== current.sku) await this.assertSkusAvailable([changes.sku], variantId);
     }
-    if (patch.attributes !== undefined) {
+    if (patch.attributes !== undefined || patch.sizeId !== undefined) {
       const definitions = await this.definitions(this.db, article.articleType.id);
-      const values = this.validateValues(definitions, 'variant', patch.attributes, ['attributes']);
+      const values = this.validateValues(
+        definitions,
+        'variant',
+        patch.attributes ?? current.attributes,
+        ['attributes'],
+      );
       runDomainRule(ArticleError, () => {
-        const duplicate = findDuplicateCombination(values, article.variants, variantId);
+        const duplicate = findDuplicateCombination(values, article.variants, variantId, sizeId);
         if (duplicate) throw duplicateCombinationError(duplicate);
       });
       changes.attributes = values;
@@ -382,6 +440,18 @@ export class ArticlesService {
     }));
   }
 
+  private async validateSize(
+    usesSize: boolean,
+    sizeId: string | null,
+    currentId: string | null = null,
+  ): Promise<void> {
+    runDomainRule(SizeError, () => assertSizeRequirement(usesSize, sizeId));
+    if (sizeId === null) return;
+    const [size] = await this.db.select().from(sizes).where(eq(sizes.id, sizeId));
+    if (!size) throw notFound('SIZE_NOT_FOUND', 'No se encontró el tamaño.');
+    runDomainRule(SizeError, () => assertSizeAssignment(size, currentId));
+  }
+
   private definitions(db: Executor, typeId: string): Promise<AttributeDefinitionForValues[]> {
     return db
       .select({
@@ -422,6 +492,7 @@ export class ArticlesService {
     path: readonly (string | number)[],
   ) {
     return {
+      sizeId: input.sizeId,
       sku: runDomainRule(ArticleError, () => normalizeSku(input.sku)),
       attributes: this.validateValues(definitions, 'variant', input.attributes, path),
       averageCost: input.averageCost,
@@ -456,6 +527,7 @@ export class ArticlesService {
     tx: Transaction,
     articleId: string,
     variant: {
+      sizeId: string | null;
       sku: string;
       attributes: AttributeValues;
       averageCost: number;
@@ -468,6 +540,7 @@ export class ArticlesService {
       .insert(articleVariants)
       .values({
         articleId,
+        sizeId: variant.sizeId,
         sku: variant.sku,
         attributes: variant.attributes,
         averageCost: variant.averageCost,

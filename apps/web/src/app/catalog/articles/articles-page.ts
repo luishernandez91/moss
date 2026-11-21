@@ -1,3 +1,6 @@
+import { SizesApi } from '../sizes/sizes-api';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import type { ComponentType } from '@angular/cdk/portal';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
@@ -21,7 +24,7 @@ const DIALOG: MatDialogConfig = { width: 'min(560px, calc(100vw - 32px))', maxWi
 @Component({
   selector: 'app-articles-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatIconModule, RouterLink],
+  imports: [MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, RouterLink],
   templateUrl: './articles-page.html',
   styleUrl: './articles-page.scss',
 })
@@ -37,6 +40,8 @@ export class ArticlesPage {
     { initialValue: true },
   );
 
+  protected readonly sizes = inject(SizesApi).list('filter');
+  protected readonly sizeId = signal<string | null>(null);
   protected readonly types = inject(ArticleTypesApi).types;
   protected readonly typeId = signal<string | null>(null);
   protected readonly q = signal('');
@@ -45,6 +50,7 @@ export class ArticlesPage {
   protected readonly attributeFilters = signal<AttributeFilter[]>([]);
   private readonly filters = computed<ArticleFilters>(() => ({
     typeId: this.typeId(),
+    sizeId: this.sizeId(),
     q: this.q(),
     inStock: this.inStock(),
     includeInactive: this.includeInactive(),
@@ -59,7 +65,11 @@ export class ArticlesPage {
   );
   protected readonly hasFilters = computed(
     () =>
-      this.typeId() !== null || this.q().trim() !== '' || this.inStock() || this.includeInactive(),
+      this.sizeId() !== null ||
+      this.typeId() !== null ||
+      this.q().trim() !== '' ||
+      this.inStock() ||
+      this.includeInactive(),
   );
   protected readonly summary = computed(() => {
     const rows = this.articles.value();
@@ -69,6 +79,7 @@ export class ArticlesPage {
 
   protected selectType(id: string | null): void {
     this.typeId.set(id);
+    if (id && !this.types.value().find((t) => t.id === id)?.usesSize) this.sizeId.set(null);
     this.attributeFilters.set([]);
   }
 

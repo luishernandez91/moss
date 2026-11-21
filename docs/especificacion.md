@@ -80,18 +80,18 @@ En cada venta se guardan el precio de lista, el precio aplicado y su origen (`ge
 
 **3. Tipos de artículo y atributos** · MVP
 
-- CRUD de tipos: Planta, Maceta, Sustrato, Fertilizantes y vitaminas, Material.
+- CRUD de tipos: Planta, Maceta, Sustrato, Fertilizantes y vitaminas, Material. «Usa tamaño» exige tamaño en todas sus variantes; no se cambia con artículos existentes hasta el flujo de C6.
 - Atributos por tipo: tipo de dato, unidad, opciones, requerido y si define variante.
 
 **4. Catálogo de artículos** · MVP
 
-- Lista con filtros por tipo y por atributo (ej. macetas de 10 cm con existencia).
+- Lista con filtros por tipo, tamaño y atributo (ej. macetas de 10 cm con existencia). Tamaño, atributos de variante y existencia deben coincidir en una misma variante activa. Tamaños desactivados solo aparecen en filtros si están en uso.
 - Marcas "se vende" y "se usa en recetas".
 - Alta de artículo con atributos fijos validados según su tipo.
 
 **5. Detalle de artículo y variantes** · MVP
 
-- Tabla de variantes: SKU, atributos, costo promedio, precio y existencia. En plantas, la variante es el tamaño.
+- Tabla de variantes: Tamaño (cuando el tipo lo usa), SKU, atributos, costo promedio, precio y existencia. Tamaños ordenados por su orden del catálogo; selector condicional al crear o editar. En plantas, la variante es el tamaño.
 - Alta solo de las variantes que existen, sin generar todas las combinaciones.
 - Historial de costos.
 
@@ -278,7 +278,7 @@ Modelo lógico. Montos en centavos enteros. La implementación en Drizzle traduc
 
 ```sql
 -- Catálogo
-tipos_articulo(id, nombre)
+tipos_articulo(id, nombre, usa_tamano BOOLEAN DEFAULT false)
 atributos(id, tipo_articulo_id, clave, nombre,
           tipo_dato ENUM('texto','numero','lista','booleano'),
           unidad NULL, opciones JSONB NULL, requerido, define_variante, activo)
@@ -289,17 +289,22 @@ articulos(id, tipo_articulo_id, nombre, descripcion, foto,
           unidad_existencia ENUM('pieza','m','kg','l','bulto'),
           atributos_fijos JSONB, se_vende, se_usa_en_recetas, activo)
 -- unidad_existencia: la existencia y el costo promedio de todas sus variantes se expresan en ella.
-articulo_variantes(id, articulo_id, sku UNIQUE, atributos JSONB,
+articulo_variantes(id, articulo_id, tamano_id NULL REFERENCES tamanos, sku UNIQUE, atributos JSONB,
           costo_promedio, precio NULL, existencia NUMERIC(12,3), activo)
--- SKU único en todo el catálogo y combinación de atributos única por artículo, también contra
--- variantes inactivas. Un artículo sin atributos de variante tiene una sola variante con atributos {}.
+-- SKU único en todo el catálogo; combinación (articulo_id, tamano_id, atributos) única,
+-- también contra inactivas, con NULLS NOT DISTINCT (PostgreSQL ≥15).
+-- usa_tamano exige tamano_id; si es falso debe ser NULL. No cambia con artículos (C6).
+-- Sin otros atributos de variante: una variante {} sin tamaño, o una por cada tamaño
+-- registrado manualmente si el tipo usa tamaño. No se generan combinaciones automáticamente.
 -- Artículos y variantes no se borran: se desactivan.
 cambios_costo_variante(id, variante_id, costo_anterior NULL, costo_promedio,
           motivo ENUM('inicial','manual'), socio_id NULL, cambiado_en)
 movimientos_inventario(id, variante_id, campana_id NULL,
           tipo ENUM('compra','venta','consumo','merma','ajuste'),
           cantidad, costo_unitario, fecha)
-tamanos(id, nombre, orden)
+tamanos(id UUID, clave UNIQUE INMUTABLE, etiqueta, orden INTEGER, activo BOOLEAN)
+-- Mini/mini, Chico/small, Mediano/medium, Grande/large. Orden no único; reordenar es atómico.
+-- Borrado solo sin referencias; renombrar y desactivar siempre permitido.
 
 -- Productos y recetas
 productos(id, parent_id NULL, nombre, activo)

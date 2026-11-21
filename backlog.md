@@ -152,14 +152,22 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - `articles.stock_unit` (pieza, m, kg, l, bulto) para la existencia (`numeric(12,3)`) y el costo de todas las variantes; la interfaz la muestra como sufijo.
     - Filtros de lista por tipo, por atributo fijo o de variante (`attr=clave:valor`, separado en el primer «:»), con existencia y por nombre o SKU, usando `jsonb`.
     - Historial de costos por variante: entrada inicial al crear y manual al editar el costo promedio.
-    - `db:seed` carga `docs/datos/catalogo-ejemplo.json` (traduce `{tamano}` a `{size}` y los enums con la tabla de equivalencias de §9).
+    - `db:seed` carga artículos y variantes de `docs/datos/catalogo-ejemplo.json` y traduce los enums con la tabla de equivalencias de §9. La traducción de filtros de recetas `{tamano}` → `{size}` corresponde a C4.
     - Borrar un atributo usado por artículos o variantes responde 409 `ATTRIBUTE_IN_USE`; solo se puede desactivar. También 409 al quitar o renombrar una opción en uso, cambiar la unidad o «define variante» de un atributo en uso, y `ATTRIBUTE_VALUES_MISSING` al marcar requerido con valores faltantes, crear un atributo requerido o de variante en un tipo con artículos, o marcar «define variante» si el tipo tiene variantes. Cambiar la clave es 422 `KEY_IMMUTABLE`.
     - Borrar un tipo de artículo con artículos responde 409 `ARTICLE_TYPE_IN_USE` y no borra nada.
 
-- [ ] **C3 · Tamaños**
-  - Depende: E0.5
-  - Spec: pantalla 24
-  - Criterios: CRUD con orden; mini, chico, mediano, grande sembrados.
+- [x] **C3 · Tamaños**
+  - Depende: E0.5, C1, C2
+  - Spec: pantallas 3, 4, 5 y 24; §2 y §9
+  - Criterios:
+    - Catálogo global `sizes`: UUID, `key` única e inmutable, `label` editable, `sort_order`, `active`. Migración con Mini (`mini`), Chico (`small`), Mediano (`medium`) y Grande (`large`).
+    - CRUD y reordenamiento completo en una transacción. Borrar en uso (incluidas variantes inactivas): 409 `SIZE_IN_USE`; renombrar y desactivar siempre permitido.
+    - `article_types.uses_size`: exige `article_variants.size_id` si es verdadero y null si es falso, en dominio y API. Cambiarlo con artículos (incluso inactivos) responde 409 `ARTICLE_TYPE_IN_USE`; activación con valor por defecto queda para C6.
+    - Combinación única por artículo, tamaño y atributos, incluidas inactivas; PostgreSQL ≥15 con `NULLS NOT DISTINCT`. `size_id` editable. Sin otros atributos: una variante por tamaño registrado manualmente, sin generar combinaciones.
+    - Filtro `sizeId` junto a `attr` e `inStock` sobre la misma variante activa. Tamaños desactivados visibles en filtros solo si están en uso; nuevas asignaciones solo a activos, conservando referencias existentes.
+    - Tamaños en Configuración; interruptor «Usa tamaño» en tipos; primera columna de variantes y selector condicional, ordenados por `sort_order`.
+    - Seed directo a `size_id`, sin atributo `tamano`; solo Planta usa tamaño en el JSON actual. Macetas conservan diámetro. Sin conversión de datos anteriores: recrear base local según `docs/tamanos.md`.
+    - Pruebas en rojo antes de implementar cada capa: dominio, contratos, API en `moss_test`, web unitaria y Playwright desktop/móvil; unicidad, obligatoriedad, 409, carreras, filtros y seed dos veces.
 
 - [ ] **C4 · Productos y recetas**
   - Depende: C2, C3, D2
@@ -169,17 +177,17 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
     - Editor de receta: componentes de artículo con filtro de atributos o de mano de obra, por tamaño opcional, con sustitución.
     - Precio por tamaño. El costo mostrado viene de D2; la UI no calcula.
     - Pantalla de detalle con selector de tamaño y desglose (heredado en gris, sustituido tachado).
-    - `db:seed` agrega productos y recetas del catálogo de ejemplo, de forma idempotente como en C2, y traduce `{tamano}` a `{size}` en los filtros de receta.
+    - `db:seed` agrega productos y recetas del catálogo de ejemplo, de forma idempotente como en C2, y traduce `{tamano}` a `{size}` en los filtros de receta. Empareja tamaños por `size_id`, tanto para el marcador del tamaño producido como para valores literales (`mini`, `chico`, `mediano`, `grande` → claves del catálogo); no depende del atributo `tamano`. Adapta el emparejamiento de D2 a esa dimensión.
 
 - [ ] **C5 · Extras**
   - Depende: C4
   - Spec: pantalla 9
   - Criterios: CRUD con componentes, minutos de armado, precio extra y productos a los que aplica.
 
-- [ ] **C6 · Nuevo atributo requerido o de variante en un tipo con artículos**
-  - Depende: C2
+- [ ] **C6 · Nuevas dimensiones en un tipo con artículos**
+  - Depende: C2, C3
   - Spec: pantalla 3
-  - Criterios: nuevo atributo requerido o de variante en un tipo con artículos, con valor por defecto aplicado en una transacción (a los artículos si es fijo, a las variantes si define variante). Sin esto, C2 responde 409 `ATTRIBUTE_VALUES_MISSING`.
+  - Criterios: nuevo atributo requerido o de variante en un tipo con artículos, con valor por defecto aplicado en una transacción (a los artículos si es fijo, a las variantes si define variante). Sin esto, C2 responde 409 `ATTRIBUTE_VALUES_MISSING`. También permite activar `uses_size` con un tamaño activo por defecto aplicado a todas las variantes existentes en una transacción, validando unicidad; sin esta operación C3 responde 409 `ARTICLE_TYPE_IN_USE`. Desactivar un tipo con artículos sigue bloqueado.
 
 ---
 

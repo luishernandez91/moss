@@ -11,14 +11,14 @@ export class ArticleTypesApi {
   private readonly http = inject(HttpClient);
   readonly types = httpResource<ArticleType[]>(() => BASE, { defaultValue: [] });
 
-  async createType(name: string): Promise<ArticleType> {
-    const created = await firstValueFrom(this.http.post<ArticleType>(BASE, { name }));
+  async createType(name: string, usesSize = false): Promise<ArticleType> {
+    const created = await firstValueFrom(this.http.post<ArticleType>(BASE, { name, usesSize }));
     this.types.reload();
     return created;
   }
 
-  async renameType(id: string, name: string): Promise<void> {
-    await firstValueFrom(this.http.patch(`${BASE}/${id}`, { name }));
+  async renameType(id: string, name: string, usesSize?: boolean): Promise<void> {
+    await firstValueFrom(this.http.patch(`${BASE}/${id}`, { name, usesSize }));
     this.types.reload();
   }
 
