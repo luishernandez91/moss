@@ -41,7 +41,14 @@ export interface TypeDialogData {
           >Usa tamaño</mat-slide-toggle
         >
         @if ((data.type?.articleCount ?? 0) > 0) {
-          <p>Este tipo ya tiene artículos; no se puede cambiar «Usa tamaño».</p>
+          @if (data.type?.usesSize) {
+            <p>Este tipo ya tiene artículos; no se puede desactivar «Usa tamaño».</p>
+          } @else {
+            <p>
+              Para asignar un tamaño a las variantes existentes, usa «Activar tamaños» en las
+              acciones del tipo.
+            </p>
+          }
         }
         @if (error()) {
           <p class="error" role="alert">{{ error() }}</p>

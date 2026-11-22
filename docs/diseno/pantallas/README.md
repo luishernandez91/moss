@@ -49,8 +49,8 @@ Componentes compartidos en `componentes/`: `menu-lateral.png` (navegación deskt
 | 04, 05 | Sin filtros ni acciones para inactivos | Artículos y variantes no se borran: «Mostrar inactivos» o «Mostrar inactivas» y la acción «Reactivar» |
 | 04 | La pastilla «Diámetro: 10 cm» aparece sin forma de agregarla | Al elegir un tipo aparece «Filtrar por atributo» (diálogo de atributo y valor) y «Con existencia» |
 | 05 (mobile) | Barra superior «‹ Artículo» con lápiz | Enlace «‹ Catálogo» y menú «Acciones del artículo» dentro de la página; la barra superior es la del shell |
-| 03 | Se puede agregar cualquier atributo a un tipo | Limitación de C2: un tipo con artículos no puede ganar un atributo requerido ni uno de variante (409 `ATTRIBUTE_VALUES_MISSING`). Se crea opcional y se llena; el de variante con valor por defecto queda para C6 |
-| 03 | Sin interruptor de tamaño | C3 agrega «Usa tamaño» al diálogo y estado en el tipo; bloqueado con artículos existentes |
+| 03 | Se puede agregar cualquier atributo a un tipo | C6 pide un valor inicial para el atributo nuevo cuando hay artículos, incluidos inactivos; se aplica una sola vez al alcance elegido. Ver [revisión C6](../revisiones/C6/README.md) |
+| 03 | Sin interruptor de tamaño | C3 agrega «Usa tamaño» y C6 agrega «Activar tamaños» en las acciones del tipo con artículos: exige tamaño activo inicial para todas las variantes. Desactivar `uses_size` sigue bloqueado |
 | 04 | Sin filtro global de tamaño | C3 agrega selector; los desactivados solo aparecen si están en uso |
 | 05 | Solo columnas de atributos | C3 agrega Tamaño como primera columna (primer dato en tarjeta móvil) si el tipo lo usa; selector condicional en diálogos |
 | 24 | Acceso a Tamaños, sin diseño de su editor | C3 usa `/configuracion/tamanos`: lista ordenada con nombre, estado, uso y botones Subir/Bajar/Editar/Desactivar/Borrar; filas apiladas en móvil. Configuración abre esta sección hasta S2; el resto sigue pendiente |

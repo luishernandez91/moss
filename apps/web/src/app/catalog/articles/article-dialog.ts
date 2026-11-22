@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { SizesApi } from '../sizes/sizes-api';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -113,6 +114,14 @@ export type ArticleDialogData =
             />
           }
         }
+        @if (conflict()) {
+          <button mat-button type="button" [disabled]="busy()" (click)="reload()">
+            Recargar datos
+          </button>
+        }
+        @if (review()) {
+          <p role="status">{{ review() }}</p>
+        }
         @if (error()) {
           <p class="error" role="alert">{{ error() }}</p>
         }
@@ -122,7 +131,7 @@ export type ArticleDialogData =
         <button
           mat-flat-button
           type="submit"
-          [disabled]="busy() || !type() || name().trim() === ''"
+          [disabled]="busy() || conflict() || !type() || name().trim() === ''"
         >
           Guardar
         </button>
@@ -165,10 +174,14 @@ export class ArticleDialog {
   protected readonly unitLabels = stockUnitLabels;
 
   private readonly editing = this.data.mode === 'edit' ? this.data.article : null;
+  private readonly reloadedType = signal<ArticleType | null>(null);
+  private readonly expectedFixedAttributes = signal(this.editing?.fixedAttributes ?? {});
+  protected readonly conflict = signal(false);
+  protected readonly review = signal('');
   protected readonly typeId = signal(this.data.mode === 'edit' ? this.data.type.id : '');
   protected readonly type = computed(() =>
     this.data.mode === 'edit'
-      ? this.data.type
+      ? (this.reloadedType() ?? this.data.type)
       : this.types.value().find((type) => type.id === this.typeId()),
   );
   protected readonly name = signal(this.editing?.name ?? '');
@@ -192,10 +205,38 @@ export class ArticleDialog {
     this.variant.set(EMPTY_VARIANT);
   }
 
+  protected async reload(): Promise<void> {
+    if (!this.editing || this.busy()) return;
+    this.busy.set(true);
+    try {
+      const { article, type } = await this.api.editState(this.editing.id);
+      const knownKeys = new Set(this.type()?.attributes.map((a) => a.key));
+      const added = Object.fromEntries(
+        Object.entries(article.fixedAttributes).filter(([key]) => !knownKeys.has(key)),
+      );
+      this.fixedAttributes.update((values) => ({ ...added, ...values }));
+      this.expectedFixedAttributes.set(article.fixedAttributes);
+      this.reloadedType.set(type);
+      this.review.set(
+        'Captura conservada. Revisa los valores actuales y vuelve a guardar: ' +
+          type.attributes
+            .filter((a) => !a.definesVariant && article.fixedAttributes[a.key] !== undefined)
+            .map((a) => `${a.name}: ${String(article.fixedAttributes[a.key])}`)
+            .join(', '),
+      );
+      this.error.set('');
+      this.conflict.set(false);
+    } catch (error) {
+      this.error.set(apiErrorMessage(error));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
   protected async save(event: Event): Promise<void> {
     event.preventDefault();
     const type = this.type();
-    if (this.busy() || !type) return;
+    if (this.busy() || this.conflict() || !type) return;
     const fixed = validateAttributeValues(type.attributes, 'fixed', this.fixedAttributes());
     this.fixedErrors.set(fixed.errors);
     const description = this.description().trim() === '' ? null : this.description();
@@ -221,7 +262,11 @@ export class ArticleDialog {
       action = () => this.api.create(input);
     } else {
       if (!fixed.values) return;
-      const patch = { ...base, fixedAttributes: fixed.values };
+      const patch = {
+        ...base,
+        fixedAttributes: fixed.values,
+        expectedFixedAttributes: this.expectedFixedAttributes(),
+      };
       const id = this.editing!.id;
       action = () => this.api.update(id, patch);
     }
@@ -231,6 +276,11 @@ export class ArticleDialog {
       this.ref.close((await action()).id);
     } catch (error) {
       this.error.set(apiErrorMessage(error));
+      if (
+        error instanceof HttpErrorResponse &&
+        (error.error as { code?: string })?.code === 'CATALOG_RECORD_CHANGED'
+      )
+        this.conflict.set(true);
     } finally {
       this.busy.set(false);
     }

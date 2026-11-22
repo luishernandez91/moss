@@ -2,6 +2,7 @@ import { HttpClient, httpResource } from '@angular/common/http';
 import { inject, Service, type Signal } from '@angular/core';
 import type {
   ArticleDetail,
+  ArticleType,
   ArticleSummary,
   ArticleVariant,
   CostChange,
@@ -59,6 +60,16 @@ export class ArticlesApi {
       },
       { defaultValue: [] },
     );
+  }
+
+  async editState(id: string): Promise<{ article: ArticleDetail; type: ArticleType }> {
+    const [article, types] = await Promise.all([
+      firstValueFrom(this.http.get<ArticleDetail>(`${BASE}/${id}`)),
+      firstValueFrom(this.http.get<ArticleType[]>('/api/article-types')),
+    ]);
+    const type = types.find((t) => t.id === article.articleType.id);
+    if (!type) throw new Error('No se encontró el tipo de artículo.');
+    return { article, type };
   }
 
   create(input: CreateArticle): Promise<ArticleDetail> {

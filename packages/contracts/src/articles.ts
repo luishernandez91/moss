@@ -149,13 +149,26 @@ export const updateArticleSchema = z
     sold: z.boolean().optional(),
     usedInRecipes: z.boolean().optional(),
     fixedAttributes: attributeValues.optional(),
+    expectedFixedAttributes: z
+      .record(z.string(), z.union([z.string(), z.number().finite(), z.boolean()]))
+      .optional(),
     active: z.boolean().optional(),
   })
-  .refine(notEmpty, 'Indica al menos un cambio.');
+  .refine(notEmpty, 'Indica al menos un cambio.')
+  .refine(
+    (patch) => patch.expectedFixedAttributes === undefined || patch.fixedAttributes !== undefined,
+    'El snapshot acompaña a los atributos que se editan.',
+  );
 export type UpdateArticle = z.infer<typeof updateArticleSchema>;
 
 export const updateVariantSchema = z
   .strictObject({
+    expectedDimension: z
+      .strictObject({
+        attributes: z.record(z.string(), z.union([z.string(), z.number().finite(), z.boolean()])),
+        sizeId: z.uuid().nullable(),
+      })
+      .optional(),
     sizeId: z.uuid().nullable().optional(),
     sku: sku.optional(),
     attributes: attributeValues.optional(),
@@ -164,7 +177,14 @@ export const updateVariantSchema = z
     stock: stock.optional(),
     active: z.boolean().optional(),
   })
-  .refine(notEmpty, 'Indica al menos un cambio.');
+  .refine(notEmpty, 'Indica al menos un cambio.')
+  .refine(
+    (patch) =>
+      patch.expectedDimension === undefined ||
+      patch.attributes !== undefined ||
+      patch.sizeId !== undefined,
+    'El snapshot acompaña a los atributos o tamaño que se editan.',
+  );
 export type UpdateVariant = z.infer<typeof updateVariantSchema>;
 
 const flag = z

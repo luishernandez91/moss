@@ -80,8 +80,11 @@ En cada venta se guardan el precio de lista, el precio aplicado y su origen (`ge
 
 **3. Tipos de artículo y atributos** · MVP
 
-- CRUD de tipos: Planta, Maceta, Sustrato, Fertilizantes y vitaminas, Material. «Usa tamaño» exige tamaño en todas sus variantes; no se cambia con artículos existentes hasta el flujo de C6.
-- Atributos por tipo: tipo de dato, unidad, opciones, requerido y si define variante.
+- CRUD de tipos: Planta, Maceta, Sustrato, Fertilizantes y vitaminas, Material. «Usa tamaño» exige tamaño en todas sus variantes. Con artículos existentes, «Activar tamaños» permite elegir un tamaño activo inicial que se asigna a todas las variantes, incluidas inactivas. Desactivar `uses_size` sigue bloqueado.
+- Atributos por tipo: tipo de dato, unidad, opciones, requerido y si define variante. Al crear un atributo nuevo en un tipo con artículos, el diálogo exige un valor inicial válido, incluso si es opcional: se aplica a todos los artículos si es fijo, o a todas las variantes si define variante, incluidos inactivos. `false` y `0` no son valores ausentes.
+- El valor inicial se aplica una sola vez; no es un valor predeterminado. Las altas futuras deben capturar los atributos requeridos y elegir tamaño cuando corresponda. No se generan variantes ni se modifican SKU, costos, existencias o historial de costos.
+- Ambas operaciones validan el estado final completo y la unicidad por artículo, tamaño y atributos, incluidas variantes inactivas, antes de escribir en una transacción bajo el bloqueo común del catálogo. Si falla una validación, no se guarda ningún cambio. La edición de atributos fijos y los cambios de definición comparten ese bloqueo.
+- C6 solo agrega estas dos operaciones; los bloqueos ordinarios al hacer requerido un atributo existente, reactivarlo o cambiar su alcance siguen vigentes.
 
 **4. Catálogo de artículos** · MVP
 

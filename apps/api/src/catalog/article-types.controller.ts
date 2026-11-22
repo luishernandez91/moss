@@ -1,3 +1,10 @@
+import { TypeDimensionsService } from './type-dimensions.service.js';
+import {
+  createAttributeDimensionSchema,
+  enableTypeSizeSchema,
+  type CreateAttributeDimension,
+  type EnableTypeSize,
+} from '@moss/contracts';
 import {
   Body,
   Controller,
@@ -31,7 +38,26 @@ type AttributeParams = { id: string; attributeId: string };
 /** Pantalla 3. Protegido por el guard global de E0.5; valida forma con los esquemas de contracts. */
 @Controller('article-types')
 export class ArticleTypesController {
-  constructor(@Inject(ArticleTypesService) private readonly service: ArticleTypesService) {}
+  constructor(
+    @Inject(ArticleTypesService) private readonly service: ArticleTypesService,
+    @Inject(TypeDimensionsService) private readonly dimensions: TypeDimensionsService,
+  ) {}
+
+  @Post(':id/attribute-dimensions')
+  createDimension(
+    @Param({ schema: articleTypeParamsSchema }) params: TypeParams,
+    @Body({ schema: createAttributeDimensionSchema }) body: CreateAttributeDimension,
+  ): Promise<Attribute> {
+    return this.dimensions.createAttribute(params.id, body);
+  }
+
+  @Post(':id/enable-size')
+  enableSize(
+    @Param({ schema: articleTypeParamsSchema }) params: TypeParams,
+    @Body({ schema: enableTypeSizeSchema }) body: EnableTypeSize,
+  ): Promise<{ usesSize: true }> {
+    return this.dimensions.enableSize(params.id, body.initialSizeId);
+  }
 
   @Get()
   list(): Promise<ArticleType[]> {

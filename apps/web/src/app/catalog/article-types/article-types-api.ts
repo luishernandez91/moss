@@ -1,3 +1,4 @@
+import type { CreateAttributeDimension } from '@moss/contracts';
 import { HttpClient, httpResource } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import type { ArticleType, Attribute, CreateAttribute, UpdateAttribute } from '@moss/contracts';
@@ -10,6 +11,22 @@ const BASE = '/api/article-types';
 export class ArticleTypesApi {
   private readonly http = inject(HttpClient);
   readonly types = httpResource<ArticleType[]>(() => BASE, { defaultValue: [] });
+
+  async createAttributeDimension(
+    typeId: string,
+    input: CreateAttributeDimension,
+  ): Promise<Attribute> {
+    const created = await firstValueFrom(
+      this.http.post<Attribute>(`${BASE}/${typeId}/attribute-dimensions`, input),
+    );
+    this.types.reload();
+    return created;
+  }
+
+  async enableSize(typeId: string, initialSizeId: string): Promise<void> {
+    await firstValueFrom(this.http.post(`${BASE}/${typeId}/enable-size`, { initialSizeId }));
+    this.types.reload();
+  }
 
   async createType(name: string, usesSize = false): Promise<ArticleType> {
     const created = await firstValueFrom(this.http.post<ArticleType>(BASE, { name, usesSize }));

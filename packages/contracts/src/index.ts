@@ -7,3 +7,4 @@ export * from './articles.js';
 export * from './partners.js';
 
 export * from './sizes.js';
+export * from './type-dimensions.js';

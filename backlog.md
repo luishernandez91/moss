@@ -187,7 +187,14 @@ Sin base de datos ni HTTP. Todo con pruebas que usan los casos de la sección 10
 - [ ] **C6 · Nuevas dimensiones en un tipo con artículos**
   - Depende: C2, C3
   - Spec: pantalla 3
-  - Criterios: nuevo atributo requerido o de variante en un tipo con artículos, con valor por defecto aplicado en una transacción (a los artículos si es fijo, a las variantes si define variante). Sin esto, C2 responde 409 `ATTRIBUTE_VALUES_MISSING`. También permite activar `uses_size` con un tamaño activo por defecto aplicado a todas las variantes existentes en una transacción, validando unicidad; sin esta operación C3 responde 409 `ARTICLE_TYPE_IN_USE`. Desactivar un tipo con artículos sigue bloqueado.
+  - Criterios:
+    - Crear un atributo nuevo fijo o de variante, requerido u opcional, con valor inicial obligatorio aplicado una sola vez a todos los artículos o variantes existentes, incluidos inactivos. No se guarda como valor predeterminado; las altas futuras capturan los valores requeridos.
+    - Activar `uses_size` con un tamaño activo inicial para todas las variantes, incluidas inactivas. Desactivar `uses_size` en un tipo con artículos sigue bloqueado.
+    - Validar el estado final completo y la unicidad `(article_id, size_id, attributes)`, también contra inactivas, antes de escribir. Transacción y `CATALOG_WRITE_LOCK` compartido con altas, ediciones y cambios de definición. Error implica rollback total.
+    - No crear variantes ni cambiar SKU, costos, existencias o historial. `false` y `0` son valores válidos. Los bloqueos ordinarios de atributos existentes siguen vigentes; C6 no agrega operaciones para rellenarlos, reactivarlos ni cambiar su alcance.
+    - Diálogos y acciones en Tipos de artículo, sin rutas nuevas. Revisión a 1440×900 y 390×844 en `docs/diseno/revisiones/C6/`.
+    - Fixtures propias y pruebas primero en rojo por capa. Seed incompatible falla sin revertir decisiones del usuario ni dejar escrituras parciales.
+    - Antes de fusionar: rebase sobre C4a en `main`, migraciones/journal/snapshot de C4 intactos y ninguna migración propia; instalación limpia, actualización desde C3, seed doble estable, recetas/filtros/referencias/costos intactos, suites y CI sobre el commit rebasado.
 
 ---
 

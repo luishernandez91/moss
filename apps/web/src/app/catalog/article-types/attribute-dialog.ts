@@ -12,6 +12,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import {
   attributeDataTypeLabels,
+  buildAttributesSchema,
   type Attribute,
   type AttributeDataType,
   type CreateAttribute,
@@ -29,6 +30,7 @@ import { ArticleTypesApi } from './article-types-api';
 
 export interface AttributeDialogData {
   typeId: string;
+  articleCount?: number;
   /** Sin atributo, crea uno nuevo. */
   attribute?: Attribute;
 }
@@ -101,6 +103,38 @@ export interface AttributeDialogData {
         @if (definesVariant()) {
           <p class="hint">Un atributo que define variante siempre es requerido.</p>
         }
+        @if (needsInitialValue) {
+          <div class="initial-explanation">
+            <p>
+              El valor inicial se aplicará a
+              {{ definesVariant() ? 'todas las variantes' : 'todos los artículos' }} de este tipo,
+              incluidos los registros inactivos.
+            </p>
+            <p>Se aplica una sola vez. Las altas futuras no tendrán un valor predeterminado.</p>
+          </div>
+          <mat-form-field appearance="outline">
+            <mat-label>Valor inicial</mat-label>
+            @if (model().dataType === 'boolean' || model().dataType === 'list') {
+              <select matNativeControl [formField]="attributeForm.initialValue">
+                <option value="">Elige un valor</option>
+                @if (model().dataType === 'boolean') {
+                  <option value="true">Sí</option>
+                  <option value="false">No</option>
+                } @else {
+                  @for (option of options(); track option) {
+                    <option [value]="option">{{ option }}</option>
+                  }
+                }
+              </select>
+            } @else {
+              <input
+                matInput
+                [type]="model().dataType === 'number' ? 'number' : 'text'"
+                [formField]="attributeForm.initialValue"
+              />
+            }
+          </mat-form-field>
+        }
         @if (error()) {
           <p class="error" role="alert">{{ error() }}</p>
         }
@@ -113,7 +147,13 @@ export interface AttributeDialogData {
         }
         <span class="spacer"></span>
         <button mat-button type="button" mat-dialog-close>Cancelar</button>
-        <button mat-flat-button type="submit" [disabled]="busy() || attributeForm().invalid()">
+        <button
+          mat-flat-button
+          type="submit"
+          [disabled]="
+            busy() || attributeForm().invalid() || (needsInitialValue && !initialValueValid())
+          "
+        >
           Guardar
         </button>
       </mat-dialog-actions>
@@ -123,16 +163,24 @@ export interface AttributeDialogData {
     mat-dialog-content {
       display: grid;
       gap: 4px;
-      padding-top: 8px;
+      padding-top: 16px;
+      max-height: 70dvh;
     }
     mat-form-field {
       width: 100%;
+    }
+    mat-form-field:first-child {
+      margin-top: 12px;
     }
     .toggles {
       display: flex;
       flex-wrap: wrap;
       gap: 16px 24px;
       margin: 8px 0;
+    }
+    .initial-explanation {
+      font: var(--mat-sys-body-small);
+      color: var(--mat-sys-on-surface-variant);
     }
     .hint {
       margin: 0;
@@ -159,7 +207,9 @@ export class AttributeDialog {
   protected readonly dataTypes = ATTRIBUTE_DATA_TYPES;
   protected readonly labels = attributeDataTypeLabels;
 
+  protected readonly needsInitialValue = !this.data.attribute && (this.data.articleCount ?? 0) > 0;
   protected readonly model = signal({
+    initialValue: '',
     name: this.data.attribute?.name ?? '',
     dataType: (this.data.attribute?.dataType ?? 'text') as AttributeDataType,
     unit: this.data.attribute?.unit ?? '',
@@ -167,6 +217,7 @@ export class AttributeDialog {
   });
   protected readonly attributeForm = form(this.model, (fields) => {
     required(fields.name);
+    required(fields.initialValue, { when: () => this.needsInitialValue });
     maxLength(fields.name, ATTRIBUTE_NAME_MAX);
     maxLength(fields.unit, ATTRIBUTE_UNIT_MAX);
     required(fields.options, { when: ({ valueOf }) => valueOf(fields.dataType) === 'list' });
@@ -177,12 +228,39 @@ export class AttributeDialog {
   protected readonly active = signal(this.data.attribute?.active ?? true);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
-  private readonly options = computed(() =>
+  protected readonly options = computed(() =>
     this.model()
       .options.split(',')
       .map((option) => option.trim())
       .filter((option) => option !== ''),
   );
+
+  protected readonly initialValueValid = computed(() => {
+    const { dataType, initialValue } = this.model();
+    if (initialValue.trim() === '') return false;
+    const schema = buildAttributesSchema(
+      [
+        {
+          key: 'initial',
+          name: 'Valor inicial',
+          dataType,
+          options: this.options(),
+          required: true,
+          definesVariant: false,
+          active: true,
+        },
+      ],
+      'fixed',
+    );
+    return schema.safeParse({ initial: this.initialValue() }).success;
+  });
+
+  private initialValue(): string | number | boolean {
+    const { dataType, initialValue } = this.model();
+    if (dataType === 'number') return Number(initialValue);
+    if (dataType === 'boolean') return initialValue === 'true';
+    return initialValue;
+  }
 
   protected setVariant(checked: boolean): void {
     const flags = applyVariantRule({ required: this.isRequired(), definesVariant: checked });
@@ -208,7 +286,13 @@ export class AttributeDialog {
           ...(dataType === 'list' && { options: this.options() }),
         });
       } else {
-        await this.api.createAttribute(typeId, this.createPayload(name, dataType, unit, flags));
+        const input = this.createPayload(name, dataType, unit, flags);
+        if (this.needsInitialValue)
+          await this.api.createAttributeDimension(typeId, {
+            attribute: input,
+            initialValue: this.initialValue(),
+          });
+        else await this.api.createAttribute(typeId, input);
       }
       this.ref.close(true);
     } catch (error) {

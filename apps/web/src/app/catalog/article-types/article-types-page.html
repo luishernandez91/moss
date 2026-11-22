@@ -51,9 +51,7 @@
               <h2 id="attributes-title">Atributos de {{ type.name }}</h2>
               <p>{{ type.usesSize ? 'Usa tamaño' : 'Sin tamaño' }}</p>
               @if (isDesktop()) {
-                <p class="subtitle">
-                  Los atributos que definen variante generan un SKU por combinación.
-                </p>
+                <p class="subtitle">Cada variante se registra con su propia combinación y SKU.</p>
               }
             </div>
             <div class="actions">
@@ -75,6 +73,11 @@
                 <mat-icon>more_vert</mat-icon>
               </button>
               <mat-menu #typeMenu="matMenu">
+                @if (!type.usesSize && type.articleCount > 0) {
+                  <button mat-menu-item type="button" (click)="enableSizes(type)">
+                    Activar tamaños
+                  </button>
+                }
                 <button mat-menu-item type="button" (click)="renameType(type)">
                   Renombrar tipo
                 </button>

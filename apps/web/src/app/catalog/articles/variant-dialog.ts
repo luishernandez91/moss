@@ -36,15 +36,23 @@ export interface VariantDialogData {
       <h2 mat-dialog-title>{{ data.variant ? 'Editar variante' : 'Agregar variante' }}</h2>
       <mat-dialog-content>
         <app-variant-fields
-          [definitions]="data.type.attributes"
-          [usesSize]="data.type.usesSize"
+          [definitions]="currentType().attributes"
+          [usesSize]="currentType().usesSize"
           [sizes]="sizes.value()"
-          [currentSizeId]="data.variant?.sizeId ?? null"
+          [currentSizeId]="expectedDimension().sizeId"
           [unit]="data.article.stockUnit"
           [(draft)]="draft"
           [errors]="errors()"
           [attributeErrors]="attributeErrors()"
         />
+        @if (conflict()) {
+          <button mat-button type="button" [disabled]="busy()" (click)="reload()">
+            Recargar datos
+          </button>
+        }
+        @if (review()) {
+          <p role="status">{{ review() }}</p>
+        }
         @if (error()) {
           <p class="error" role="alert">{{ error() }}</p>
         }
@@ -57,7 +65,7 @@ export interface VariantDialogData {
         }
         <span class="spacer"></span>
         <button mat-button type="button" mat-dialog-close>Cancelar</button>
-        <button mat-flat-button type="submit" [disabled]="busy()">Guardar</button>
+        <button mat-flat-button type="submit" [disabled]="busy() || conflict()">Guardar</button>
       </mat-dialog-actions>
     </form>
   `,
@@ -76,6 +84,13 @@ export interface VariantDialogData {
 })
 export class VariantDialog {
   protected readonly data = inject<VariantDialogData>(MAT_DIALOG_DATA);
+  protected readonly currentType = signal(this.data.type);
+  protected readonly expectedDimension = signal({
+    attributes: this.data.variant?.attributes ?? {},
+    sizeId: this.data.variant?.sizeId ?? null,
+  });
+  protected readonly conflict = signal(false);
+  protected readonly review = signal('');
   protected readonly sizes = inject(SizesApi).list();
   private readonly api = inject(ArticlesApi);
   private readonly ref = inject<MatDialogRef<VariantDialog, boolean>>(MatDialogRef);
@@ -97,20 +112,59 @@ export class VariantDialog {
   protected readonly busy = signal(false);
   protected readonly error = signal('');
 
+  protected async reload(): Promise<void> {
+    if (!this.data.variant || this.busy()) return;
+    this.busy.set(true);
+    try {
+      const { article, type } = await this.api.editState(this.data.article.id);
+      const variant = article.variants.find((v) => v.id === this.data.variant!.id);
+      if (!variant) throw new Error('No se encontró la variante.');
+      const knownKeys = new Set(this.currentType().attributes.map((a) => a.key));
+      const added = Object.fromEntries(
+        Object.entries(variant.attributes).filter(([key]) => !knownKeys.has(key)),
+      );
+      const newSize = !this.currentType().usesSize && type.usesSize;
+      this.draft.update((draft) => ({
+        ...draft,
+        attributes: { ...added, ...draft.attributes },
+        ...(newSize && { sizeId: variant.sizeId }),
+      }));
+      this.expectedDimension.set({ attributes: variant.attributes, sizeId: variant.sizeId });
+      this.currentType.set(type);
+      this.sizes.reload();
+      this.review.set(
+        'Captura conservada. Revisa los valores actuales y vuelve a guardar: ' +
+          type.attributes
+            .filter((a) => a.definesVariant && variant.attributes[a.key] !== undefined)
+            .map((a) => `${a.name}: ${String(variant.attributes[a.key])}`)
+            .join(', '),
+      );
+      this.error.set('');
+      this.conflict.set(false);
+    } catch (error) {
+      this.error.set(apiErrorMessage(error));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
   protected async save(event: Event): Promise<void> {
     event.preventDefault();
-    if (this.busy()) return;
+    if (this.busy() || this.conflict()) return;
     const result = readVariantDraft(
-      this.data.type.attributes,
+      this.currentType().attributes,
       this.draft(),
-      this.data.type.usesSize,
+      this.currentType().usesSize,
     );
     this.errors.set(result.errors ?? {});
     this.attributeErrors.set(result.variant ? {} : result.attributeErrors);
     if (!result.variant) return;
     await this.run(() =>
       this.data.variant
-        ? this.api.updateVariant(this.data.article.id, this.data.variant.id, result.variant)
+        ? this.api.updateVariant(this.data.article.id, this.data.variant.id, {
+            ...result.variant,
+            expectedDimension: this.expectedDimension(),
+          })
         : this.api.addVariant(this.data.article.id, result.variant),
     );
   }
@@ -130,6 +184,11 @@ export class VariantDialog {
       this.ref.close(true);
     } catch (error) {
       this.error.set(apiErrorMessage(error));
+      if (
+        error instanceof HttpErrorResponse &&
+        (error.error as { code?: string })?.code === 'CATALOG_RECORD_CHANGED'
+      )
+        this.conflict.set(true);
       const details =
         error instanceof HttpErrorResponse
           ? (error.error as { details?: unknown })?.details

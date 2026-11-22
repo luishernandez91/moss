@@ -135,7 +135,11 @@ export class ArticleTypesService {
   }
 
   /** Borra el tipo y sus atributos, solo si no tiene artículos (activos o no). */
-  async deleteType(id: string): Promise<void> {
+  deleteType(id: string): Promise<void> {
+    return catalogWrite(this.db, (tx) => new ArticleTypesService(tx).deleteTypeLocked(id));
+  }
+
+  private async deleteTypeLocked(id: string): Promise<void> {
     const [type] = await this.db
       .select({ name: articleTypes.name })
       .from(articleTypes)
@@ -161,7 +165,13 @@ export class ArticleTypesService {
     if (deleted.length === 0) throw typeNotFound();
   }
 
-  async createAttribute(typeId: string, input: CreateAttribute): Promise<Attribute> {
+  createAttribute(typeId: string, input: CreateAttribute): Promise<Attribute> {
+    return catalogWrite(this.db, (tx) =>
+      new ArticleTypesService(tx).createAttributeLocked(typeId, input),
+    );
+  }
+
+  private async createAttributeLocked(typeId: string, input: CreateAttribute): Promise<Attribute> {
     await this.assertTypeExists(typeId);
     const siblings = await this.siblings(typeId);
     const definition = runDomainRule(ArticleTypeError, () =>
@@ -185,7 +195,17 @@ export class ArticleTypesService {
     return created!;
   }
 
-  async updateAttribute(typeId: string, id: string, patch: UpdateAttribute): Promise<Attribute> {
+  updateAttribute(typeId: string, id: string, patch: UpdateAttribute): Promise<Attribute> {
+    return catalogWrite(this.db, (tx) =>
+      new ArticleTypesService(tx).updateAttributeLocked(typeId, id, patch),
+    );
+  }
+
+  private async updateAttributeLocked(
+    typeId: string,
+    id: string,
+    patch: UpdateAttribute,
+  ): Promise<Attribute> {
     const [current] = await this.db
       .select(attributeFields)
       .from(attributes)
@@ -217,7 +237,13 @@ export class ArticleTypesService {
   }
 
   /** Un atributo con valores guardados no se borra (409 `ATTRIBUTE_IN_USE`); se desactiva. */
-  async deleteAttribute(typeId: string, id: string): Promise<void> {
+  deleteAttribute(typeId: string, id: string): Promise<void> {
+    return catalogWrite(this.db, (tx) =>
+      new ArticleTypesService(tx).deleteAttributeLocked(typeId, id),
+    );
+  }
+
+  private async deleteAttributeLocked(typeId: string, id: string): Promise<void> {
     const [current] = await this.db
       .select(attributeFields)
       .from(attributes)
