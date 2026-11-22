@@ -90,7 +90,7 @@ const quantity = z
     return (mantissa.split('.')[1]?.length ?? 0) - Number(exponent) <= QUANTITY_DECIMALS_MAX;
   }, `Usa como máximo ${QUANTITY_DECIMALS_MAX} decimales.`);
 
-/** Un valor para todos los tamaños (`sizeId` null) o uno por tamaño, sin mezclar ni repetir. */
+/** Hasta un valor para todos los tamaños (`sizeId` null) y uno por tamaño; el del tamaño gana (§2). */
 function valuesSchema<T extends z.ZodType>(value: T) {
   return z
     .array(value)
@@ -98,8 +98,8 @@ function valuesSchema<T extends z.ZodType>(value: T) {
     .max(50)
     .refine((values) => {
       const sizeIds = values.map((entry) => (entry as { sizeId: string | null }).sizeId);
-      return sizeIds.includes(null) ? values.length === 1 : unique(sizeIds);
-    }, 'Indica un valor para todos los tamaños o uno por tamaño, sin repetirlos.');
+      return unique(sizeIds);
+    }, 'Usa un solo valor para todos los tamaños y uno por tamaño, sin repetirlos.');
 }
 
 export const variantSizeSchema = z.discriminatedUnion('match', [

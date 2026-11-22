@@ -374,6 +374,26 @@ describe('resolveCost · árbol', () => {
     expect(small.lines.map((candidate) => candidate.componentId)).toEqual(['fab']);
   });
 
+  it('un valor genérico con valores por tamaño: el del tamaño gana, el genérico cubre el resto', () => {
+    const products = [
+      node('a', null, [
+        { ...labor('fab', 0), amount: { generic: pesos(20), bySize: { grande: pesos(30) } } },
+        {
+          id: 'hilo',
+          kind: 'article',
+          category: 'material',
+          articleId: 'insumo',
+          quantity: { generic: 4, bySize: { mediano: 6 } },
+        },
+      ]),
+    ];
+    const at = (size: string) => resolveCost({ products, articles, productId: 'a', size });
+    expect(at('chico').total).toBe(2000 + 4000);
+    expect(at('mediano').total).toBe(2000 + 6000);
+    expect(at('grande').total).toBe(3000 + 4000);
+    expect(line(at('grande'), 'fab')).toMatchObject({ origin: 'own', unitCost: 3000 });
+  });
+
   it('rechaza dos componentes genéricos con la misma clave en un producto', () => {
     const products = [node('a', null, [labor('fab-1', 20), labor('fab-2', 25)])];
     expectError(

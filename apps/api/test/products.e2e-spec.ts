@@ -507,6 +507,32 @@ describe('C4 productos y recetas (moss_test)', () => {
     expect(wrong.body).toMatchObject({ code: 'VARIANT_NOT_ALLOWED' });
   });
 
+  it('§2: un componente con valor genérico y valores por tamaño; el del tamaño gana', async () => {
+    const mixed = await createProduct({ name: name('Valores mezclados') });
+    const saved = await setRecipe(mixed.id, [
+      fab([
+        [null, 2000],
+        [size.large, 3000],
+      ]),
+    ]);
+    expect((saved.body as ProductDetail).components[0]!.values).toEqual([
+      { sizeId: null, quantity: null, amount: 2000 },
+      { sizeId: size.large, quantity: null, amount: 3000 },
+    ]);
+    expect(((await cost(mixed.id, size.small)).body as ProductCost).total).toBe(2000);
+    expect(((await cost(mixed.id, size.large)).body as ProductCost).total).toBe(3000);
+    const twoGeneric = await put(`/api/products/${mixed.id}/recipe`, {
+      version: (await detail(mixed.id)).version,
+      components: [
+        fab([
+          [null, 2000],
+          [null, 2500],
+        ]),
+      ],
+    });
+    expect(twoGeneric.status).toBe(400);
+  });
+
   it('árbol: rechaza el cuarto nivel, ciclos y padres inexistentes (422)', async () => {
     const a = await createProduct({ name: name('Nivel 1') });
     const b = await createProduct({ name: name('Nivel 2'), parentId: a.id });

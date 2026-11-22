@@ -32,7 +32,9 @@ DATABASE_URL_TEST=postgres://moss:moss@localhost:5432/moss_test pnpm e2e
 
 El JSON conserva sus nombres en español. `tamano` se extrae de las variantes y se guarda como `size_id`: mini→mini, chico→small, mediano→medium, grande→large. No se crea la definición de atributo `tamano`. El seed detecta los tipos que usan tamaño por las definiciones, variantes y filtros de recetas; en el ejemplo solo Planta (5 artículos, 11 variantes). Las macetas conservan forma, diámetro y color, sin tamaño global.
 
-El seed es transaccional e idempotente: crea faltantes, no cambia capturas existentes. Un tamaño desconocido, desactivado para una asignación nueva o un tipo existente incompatible aborta con contexto. Las pruebas ejecutan el seed dos veces y comprueban referencias de recetas con `{tamano}` y con tamaños literales contra los IDs sembrados, sin el atributo anterior. La persistencia de productos/recetas y el emparejamiento de D2 por `size_id` siguen en C4; C3 no afirma cargar recetas que aún no tienen tablas.
+El seed es transaccional e idempotente: crea faltantes, no cambia capturas existentes. Un tamaño desconocido, desactivado para una asignación nueva o un tipo existente incompatible aborta con contexto. Las pruebas ejecutan el seed dos veces y comprueban referencias de recetas con `{tamano}` y con tamaños literales contra los IDs sembrados, sin el atributo anterior.
+
+C4 siembra productos y recetas con la misma traducción. `{tamano}` en un filtro se guarda como `recipe_components.variant_size_produced` (el tamaño que se produce) y un tamaño literal como `variant_size_id`; ninguno queda en `attribute_filter`. Las cantidades y montos por tamaño, la oferta (`tamanos`) y los precios por tamaño usan `size_id`, y la variante fija se guarda por ID a partir de su SKU. D2 empareja por `article_variants.size_id`. Ver «Productos y recetas (C4)» en `docs/decisiones.md`.
 
 ## Integridad y orden
 

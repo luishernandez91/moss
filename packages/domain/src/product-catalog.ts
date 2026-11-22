@@ -65,7 +65,7 @@ export interface PersistedArticleComponent extends PersistedComponentBase {
   attributeFilter: Readonly<Record<string, AttributeValue>>;
   variantSize: VariantSizeMatch | null;
   concept: string | null;
-  /** Un valor genérico (`sizeId` null) o uno por tamaño; nunca ambos. */
+  /** Hasta un valor genérico (`sizeId` null) y uno por tamaño; el del tamaño gana (§2). */
   values: readonly { sizeId: SizeId | null; quantity: number }[];
 }
 
@@ -183,8 +183,12 @@ function perSize<T extends number>(
   values: readonly { sizeId: SizeId | null; value: T }[],
 ): PerSize<T> {
   const generic = values.find((entry) => entry.sizeId === null);
-  if (generic) return generic.value;
-  return Object.fromEntries(values.map((entry) => [entry.sizeId, entry.value]));
+  const sized = values.filter((entry) => entry.sizeId !== null);
+  if (generic && sized.length === 0) return generic.value;
+  const bySize: Record<SizeId, T> = Object.fromEntries(
+    sized.map((entry) => [entry.sizeId, entry.value]),
+  );
+  return generic ? { generic: generic.value, bySize } : bySize;
 }
 
 function toCostComponent(component: PersistedComponent): RecipeComponent {
@@ -440,17 +444,17 @@ function validateComponent(
     );
   }
 
-  // Valores: uno genérico o uno por tamaño, sin mezclar ni repetir.
+  // Valores: hasta un genérico y uno por tamaño (§2); el del tamaño gana al genérico.
   const values: { sizeId: SizeId | null; value: number }[] =
     component.kind === 'fixed'
       ? component.values.map(({ sizeId, amount }) => ({ sizeId, value: amount }))
       : component.values.map(({ sizeId, quantity }) => ({ sizeId, value: quantity }));
   const generic = values.filter((entry) => entry.sizeId === null);
   const sized = values.filter((entry) => entry.sizeId !== null);
-  if (values.length === 0 || (generic.length > 0 && values.length > 1)) {
+  if (values.length === 0 || generic.length > 1) {
     throw new ProductError(
       'INVALID_COMPONENT_VALUES',
-      `${context}: indica un valor para todos los tamaños o uno por tamaño, sin mezclarlos.`,
+      `${context}: indica un valor para todos los tamaños, valores por tamaño o ambos, con un solo valor para todos.`,
     );
   }
   if (new Set(sized.map((entry) => entry.sizeId)).size !== sized.length) {

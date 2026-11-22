@@ -10,7 +10,16 @@ export const MAX_PRODUCT_TREE_DEPTH = 3;
 
 export type SizeId = string;
 export type AttributeValue = string | number | boolean;
-export type PerSize<T> = T | Readonly<Record<SizeId, T>>;
+/** Valor genérico con valores por tamaño en el mismo componente (§2): el del tamaño gana. */
+export interface SizedValues<T> {
+  generic: T;
+  bySize: Readonly<Record<SizeId, T>>;
+}
+/**
+ * Cantidad o monto: uno para todos los tamaños, uno por tamaño (los tamaños sin valor no aplican)
+ * o un genérico con valores por tamaño que lo sustituyen.
+ */
+export type PerSize<T> = T | Readonly<Record<SizeId, T>> | SizedValues<T>;
 
 export interface Variant {
   id: string;
@@ -395,8 +404,21 @@ export function componentGroupKey(component: RecipeComponent): string {
   return `article|${component.articleId}|${component.variantId ?? ''}|${component.variantSize ?? ''}|${JSON.stringify(filter)}`;
 }
 
+function isSizedValues<T>(value: PerSize<T>): value is SizedValues<T> {
+  return typeof value === 'object' && value !== null && 'generic' in value && 'bySize' in value;
+}
+
+/** Tamaño específico > genérico. */
 function perSizeValue<T extends number>(value: PerSize<T>, size: SizeId): T | undefined {
-  return typeof value === 'number' ? value : value[size];
+  if (typeof value === 'number') return value;
+  if (isSizedValues(value)) return value.bySize[size] ?? value.generic;
+  return (value as Readonly<Record<SizeId, T>>)[size];
+}
+
+/** Tamaños con valor propio (para mensajes). */
+function definedSizes(value: PerSize<number>): SizeId[] {
+  if (typeof value === 'number') return [];
+  return Object.keys(isSizedValues(value) ? value.bySize : value);
 }
 
 function perSizeValueOf(component: RecipeComponent): PerSize<number> {
@@ -456,7 +478,7 @@ function selectForSize(
         (member) => member.size === undefined && member.replacesComponentId === undefined,
       );
       if (missing) {
-        const defined = Object.keys(perSizeValueOf(missing)).map(names.size).join(', ');
+        const defined = definedSizes(perSizeValueOf(missing)).map(names.size).join(', ');
         uncovered.set(
           key,
           new CostResolutionError(

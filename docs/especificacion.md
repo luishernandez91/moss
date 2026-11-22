@@ -113,7 +113,7 @@ En cada venta se guardan el precio de lista, el precio aplicado y su origen (`ge
 **8. Detalle de producto o subproducto** · MVP
 
 - Receta con componentes heredados (gris, "Heredado"), propios y sustituidos (tachados, "Sustituido").
-- Componentes de artículo, con filtro de atributos y `{tamano}`, o de mano de obra. Un componente es uno solo con un valor para todos los tamaños o uno por tamaño. Puede sustituir un componente heredado de un ancestro.
+- Componentes de artículo, con filtro de atributos y `{tamano}`, o de mano de obra. Un componente es uno solo, con un valor para todos los tamaños, valores por tamaño o ambos; el valor del tamaño gana al genérico (§2). Puede sustituir un componente heredado de un ancestro.
 - Oferta de tamaños: «Heredar tamaños» o una lista explícita.
 - Selector de tamaño que recalcula el costo. El costo viene de la API (D2); la interfaz no calcula.
 - Si un componente coincide con varias variantes, el desglose muestra «Requiere elegir variante» y permite elegirla para ver el costo; la elección no se guarda.
@@ -323,8 +323,8 @@ componentes(id, producto_id, posicion, articulo_id NULL, variante_id NULL, filtr
           tamano_variante: '{tamano}' (el producido) | tamano_id | NULL,
           concepto NULL, tipo ENUM('material','mano_obra'), sustituye_componente_id NULL)
 componente_valores(id, componente_id, tamano_id NULL, cantidad NUMERIC(12,4) NULL, monto NULL)
--- Cada componente tiene identidad estable y sus valores en componente_valores: uno genérico
--- (tamano_id NULL) o uno por tamaño, sin mezclar. Cantidad en artículos, monto en mano de obra o
+-- Cada componente tiene identidad estable y sus valores en componente_valores: hasta uno genérico
+-- (tamano_id NULL) y uno por tamaño; el del tamaño gana al genérico (§2). Cantidad en artículos, monto en mano de obra o
 -- material sin artículo. El tamaño es la dimensión global de la variante (C3): {tamano} y los
 -- tamaños literales se guardan en tamano_variante, no en filtro_atributos. La variante fija se
 -- referencia por id. sustituye_componente_id apunta a un componente de un ancestro.

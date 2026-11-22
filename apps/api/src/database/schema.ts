@@ -450,7 +450,10 @@ export const recipeComponents = pgTable(
   ],
 );
 
-/** Cantidad (artículo) o monto en centavos (fijo) de un componente: genérico (`size_id` NULL) o por tamaño. */
+/**
+ * Cantidad (artículo) o monto en centavos (fijo) de un componente: hasta un genérico (`size_id`
+ * NULL) y uno por tamaño, por la unicidad `NULLS NOT DISTINCT`. El del tamaño gana al genérico (§2).
+ */
 export const recipeComponentValues = pgTable(
   'recipe_component_values',
   {

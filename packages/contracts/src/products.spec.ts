@@ -137,13 +137,30 @@ describe('recipeSchema', () => {
     ).toBe(true);
   });
 
-  it('rechaza valores mezclados, repetidos, vacíos o con más de 4 decimales', () => {
+  it('acepta un genérico más valores por tamaño (§2)', () => {
+    const small = id();
+    expect(
+      recipeSchema.safeParse({
+        version: 0,
+        components: [
+          article({
+            values: [
+              { sizeId: null, quantity: 1 },
+              { sizeId: small, quantity: 2 },
+            ],
+          }),
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rechaza dos genéricos, tamaños repetidos, vacíos o con más de 4 decimales', () => {
     const small = id();
     for (const values of [
       [],
       [
         { sizeId: null, quantity: 1 },
-        { sizeId: small, quantity: 2 },
+        { sizeId: null, quantity: 2 },
       ],
       [
         { sizeId: small, quantity: 1 },

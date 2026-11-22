@@ -328,7 +328,7 @@ describe('validateProductCatalog', () => {
     );
   });
 
-  it('valores: genérico o por tamaño sin mezclar, sin repetir y con cantidades válidas', () => {
+  it('valores: máximo un genérico y uno por tamaño, con cantidades válidas', () => {
     const products = [
       product({ id: 'a', sizeOffer: { mode: 'explicit', sizeIds: ['chico', 'mediano'] } }),
     ];
@@ -340,7 +340,7 @@ describe('validateProductCatalog', () => {
           productId: 'a',
           values: [
             { sizeId: null, amount: cents(1) },
-            { sizeId: 'chico', amount: cents(2) },
+            { sizeId: null, amount: cents(2) },
           ],
         }),
         'INVALID_COMPONENT_VALUES',
@@ -391,6 +391,21 @@ describe('validateProductCatalog', () => {
     for (const [component, code] of cases) {
       expectError(() => validateProductCatalog(withProducts(products, [component])), code);
     }
+    // §2: un genérico más valores por tamaño en el mismo componente.
+    expect(() =>
+      validateProductCatalog(
+        withProducts(products, [
+          fixed({
+            id: 'x',
+            productId: 'a',
+            values: [
+              { sizeId: null, amount: cents(2000) },
+              { sizeId: 'mediano', amount: cents(2500) },
+            ],
+          }),
+        ]),
+      ),
+    ).not.toThrow();
     // Cantidades fraccionarias de hasta 4 decimales, también cerca del máximo de numeric(12,4).
     expect(() =>
       validateProductCatalog(
@@ -741,6 +756,50 @@ describe('assessProductCosts y productCostDetail', () => {
         warning: null,
         error: null,
       },
+    ]);
+  });
+
+  it('§2: el valor por tamaño gana al genérico del mismo componente', () => {
+    const products = [product({ id: 'a', name: 'Mezcla' })];
+    const components = [
+      fixed({
+        id: 'fab',
+        productId: 'a',
+        concept: 'Fabricación',
+        values: [
+          { sizeId: null, amount: cents(2000) },
+          { sizeId: 'grande', amount: cents(3000) },
+        ],
+      }),
+      articleComponent({
+        id: 'hilo',
+        productId: 'a',
+        articleId: 'hilo-canamo',
+        values: [
+          { sizeId: null, quantity: 4 },
+          { sizeId: 'mediano', quantity: 6 },
+        ],
+      }),
+    ];
+    const catalog = sampleProductCatalog({ products, components });
+    expect(() => validateProductCatalog(catalog)).not.toThrow();
+    const sizes = assessProductCosts(catalog, { minMarginPercent: 0 })[0]!.sizes;
+    expect(sizes.map((size) => [size.sizeId, size.cost])).toEqual([
+      ['mini', 2000 + 200],
+      ['chico', 2000 + 200],
+      ['mediano', 2000 + 300],
+      ['grande', 3000 + 200],
+    ]);
+    const detail = productCostDetail(catalog, {
+      productId: 'a',
+      sizeId: 'grande',
+      minMarginPercent: 0,
+    });
+    expect(
+      detail.lines.map((line) => [line.componentId, line.origin, line.quantity, line.subtotal]),
+    ).toEqual([
+      ['fab', 'own', 1, 3000],
+      ['hilo', 'own', 4, 200],
     ]);
   });
 
