@@ -16,7 +16,7 @@ try {
   );
   console.log(`Tipos que usan tamaño: ${sizedTypes.join(', ') || 'ninguno'}.`);
   const line = (counts: typeof created) =>
-    `${counts.articleTypes} tipos, ${counts.attributes} atributos, ${counts.articles} artículos, ${counts.variants} variantes`;
+    `${counts.articleTypes} tipos, ${counts.attributes} atributos, ${counts.articles} artículos, ${counts.variants} variantes, ${counts.products} productos, ${counts.recipeComponents} componentes de receta`;
   console.log(`Creados: ${line(created)}.`);
   console.log(`Ya existían: ${line(existing)}.`);
   if (defaultedToPiece.length > 0) {

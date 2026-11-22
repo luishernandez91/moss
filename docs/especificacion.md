@@ -105,13 +105,18 @@ En cada venta se guardan el precio de lista, el precio aplicado y su origen (`ge
 **7. Productos** · MVP
 
 - Árbol producto → subproducto, hasta 3 niveles.
-- Costo calculado, precio y margen por tamaño en cada fila.
+- Costo calculado, precio y margen por tamaño en cada fila. Los tamaños de cada fila son su oferta: la lista propia, la heredada del ancestro más cercano que la define o, sin ninguna, todos los tamaños activos.
+- Si el filtro de un componente coincide con varias variantes (macetas de color libre), la fila dice «Requiere elegir variante»: no toma la primera ni promedia. Un error de datos en un tamaño (sin variante de ese tamaño, sin valor para ese tamaño) se muestra en ese tamaño, sin ocultar los demás.
+- Un precio ausente es «Sin precio» (no se hereda del padre) y su margen, «—».
+- Los productos no se borran: se desactivan y se ven con «Mostrar inactivos».
 
 **8. Detalle de producto o subproducto** · MVP
 
 - Receta con componentes heredados (gris, "Heredado"), propios y sustituidos (tachados, "Sustituido").
-- Componentes de artículo, con filtro de atributos y `{tamano}`, o de mano de obra.
-- Selector de tamaño que recalcula el costo.
+- Componentes de artículo, con filtro de atributos y `{tamano}`, o de mano de obra. Un componente es uno solo, con un valor para todos los tamaños, valores por tamaño o ambos; el valor del tamaño gana al genérico (§2). Puede sustituir un componente heredado de un ancestro.
+- Oferta de tamaños: «Heredar tamaños» o una lista explícita.
+- Selector de tamaño que recalcula el costo. El costo viene de la API (D2); la interfaz no calcula.
+- Si un componente coincide con varias variantes, el desglose muestra «Requiere elegir variante» y permite elegirla para ver el costo; la elección no se guarda.
 - Precio de venta por tamaño y margen.
 
 **9. Extras** · MVP
@@ -306,12 +311,23 @@ tamanos(id UUID, clave UNIQUE INMUTABLE, etiqueta, orden INTEGER, activo BOOLEAN
 -- Mini/mini, Chico/small, Mediano/medium, Grande/large. Orden no único; reordenar es atómico.
 -- Borrado solo sin referencias; renombrar y desactivar siempre permitido.
 
--- Productos y recetas
-productos(id, parent_id NULL, nombre, activo)
+-- Productos y recetas (C4)
+productos(id, parent_id NULL, nombre UNIQUE, hereda_tamanos BOOLEAN DEFAULT true, activo, version)
+-- Árbol de hasta 3 niveles, sin ciclos (dominio, bajo el bloqueo de catálogo). Sin borrado: se desactivan.
+producto_tamanos(producto_id, tamano_id)
+-- Oferta explícita de tamaños (hereda_tamanos = false). Si hereda, toma la del ancestro más cercano
+-- que la define; sin ninguno, no restringe.
 producto_precios(id, producto_id, tamano_id, precio)
-componentes(id, producto_id, articulo_id NULL, filtro_atributos JSONB NULL,
-          concepto, tipo ENUM('material','mano_obra'), cantidad, monto,
-          tamano_id NULL, sustituye_componente_id NULL)
+-- Un precio por tamaño de la oferta; sin fila no hay precio (null, sin herencia).
+componentes(id, producto_id, posicion, articulo_id NULL, variante_id NULL, filtro_atributos JSONB,
+          tamano_variante: '{tamano}' (el producido) | tamano_id | NULL,
+          concepto NULL, tipo ENUM('material','mano_obra'), sustituye_componente_id NULL)
+componente_valores(id, componente_id, tamano_id NULL, cantidad NUMERIC(12,4) NULL, monto NULL)
+-- Cada componente tiene identidad estable y sus valores en componente_valores: hasta uno genérico
+-- (tamano_id NULL) y uno por tamaño; el del tamaño gana al genérico (§2). Cantidad en artículos, monto en mano de obra o
+-- material sin artículo. El tamaño es la dimensión global de la variante (C3): {tamano} y los
+-- tamaños literales se guardan en tamano_variante, no en filtro_atributos. La variante fija se
+-- referencia por id. sustituye_componente_id apunta a un componente de un ancestro.
 extras(id, nombre, precio_extra, minutos_armado)
 extra_componentes(id, extra_id, articulo_id NULL, concepto, tipo, cantidad, monto)
 
@@ -368,7 +384,8 @@ En `campana_items`, `producto_id` y `variante_id` son excluyentes: exactamente u
 | --- | --- |
 | `tipos_articulo`, `atributos`, `articulos`, `articulo_variantes`, `cambios_costo_variante` | `article_types`, `attributes`, `articles`, `article_variants`, `variant_cost_changes` |
 | `movimientos_inventario`, `tamanos` | `inventory_movements`, `sizes` |
-| `productos`, `producto_precios`, `componentes` | `products`, `product_prices`, `recipe_components` |
+| `productos`, `producto_tamanos`, `producto_precios`, `componentes`, `componente_valores` | `products`, `product_sizes`, `product_prices`, `recipe_components`, `recipe_component_values` |
+| `hereda_tamanos`, `tamano_variante` (`{tamano}` / tamaño fijo) | `inherits_sizes`, `variant_size_produced` / `variant_size_id` |
 | `extras`, `extra_componentes` | `add_ons`, `add_on_components` |
 | `tipos_campana`, `campanas`, `campana_items`, `campana_eventos` | `campaign_types`, `campaigns`, `campaign_items`, `campaign_events` |
 | `gastos`, `producciones`, `ventas`, `venta_items` | `expenses`, `production_runs`, `sales`, `sale_lines` |

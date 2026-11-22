@@ -15,14 +15,22 @@ import { SIZE_PLACEHOLDER } from '../cost-resolution.js';
 import type { StockUnit } from '../article.js';
 import { fromPesos, type Cents } from '../money.js';
 
-/** El catálogo de ejemplo usa los nombres de la especificación: `{tamano}` es `SIZE_PLACEHOLDER`. */
-function translateFilter(filter: Record<string, AttributeValue>): Record<string, AttributeValue> {
-  return Object.fromEntries(
-    Object.entries(filter).map(([key, value]) => [
-      key,
-      value === '{tamano}' ? SIZE_PLACEHOLDER : value,
-    ]),
-  );
+/**
+ * El catálogo de ejemplo usa los nombres de la especificación. El tamaño es la dimensión global
+ * `sizeId` (C3), no un atributo: `{tamano}` es `SIZE_PLACEHOLDER` y un literal (`chico`) es el
+ * tamaño con ese id. Los ids de tamaño del fixture son los nombres del JSON.
+ */
+function splitFilter(filter: Record<string, AttributeValue>): {
+  attributeFilter?: Record<string, AttributeValue>;
+  variantSize?: string;
+} {
+  const { tamano, ...attributes } = filter;
+  return {
+    ...(Object.keys(attributes).length > 0 && { attributeFilter: attributes }),
+    ...(tamano !== undefined && {
+      variantSize: tamano === '{tamano}' ? SIZE_PLACEHOLDER : String(tamano),
+    }),
+  };
 }
 
 type RawPerSize = number | Record<string, number>;
@@ -96,10 +104,9 @@ function toComponent(raw: RawComponent, fallbackId: string): RecipeComponent {
       articleId: raw.articulo_id,
       quantity: raw.cantidad ?? 1,
       ...(raw.concepto !== undefined && { concept: raw.concepto }),
-      ...(raw.variante_sku !== undefined && { variantSku: raw.variante_sku }),
-      ...(raw.filtro_atributos !== undefined && {
-        attributeFilter: translateFilter(raw.filtro_atributos),
-      }),
+      // En el fixture el id de una variante es su SKU.
+      ...(raw.variante_sku !== undefined && { variantId: raw.variante_sku }),
+      ...(raw.filtro_atributos !== undefined && splitFilter(raw.filtro_atributos)),
     };
   }
   if (raw.monto === undefined || raw.concepto === undefined) {
@@ -115,9 +122,11 @@ export const sampleArticles: Article[] = (catalog.articulos as RawArticle[]).map
   id: article.id,
   name: article.nombre,
   stockUnit: STOCK_UNIT_FROM_SPEC[String(article.atributos_fijos?.['unidad_consumo'])] ?? 'piece',
-  variants: article.variantes.map((variant) => ({
-    sku: variant.sku,
-    attributes: variant.atributos,
+  variants: article.variantes.map(({ sku, atributos: { tamano, ...attributes }, ...variant }) => ({
+    id: sku,
+    sku,
+    sizeId: tamano === undefined ? null : String(tamano),
+    attributes,
     averageCost: pesos(variant.costo_promedio),
   })),
 }));

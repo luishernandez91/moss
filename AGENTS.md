@@ -59,7 +59,7 @@ pnpm typecheck          # tsc --noEmit en todos los paquetes
 pnpm format             # Prettier
 pnpm db:generate        # genera migración desde src/database/schema.ts
 pnpm db:verify          # compara las migraciones aplicadas en DATABASE_URL contra el journal
-pnpm db:seed            # carga artículos/variantes y size_id; recetas llegan en C4
+pnpm db:seed            # carga artículos/variantes con size_id, productos y recetas
 ```
 
 `packages/domain` y `packages/contracts` se consumen compilados (`dist/`). Los scripts raíz los compilan antes; si corres un comando dentro de una app y no ve un cambio de un paquete, corre `pnpm build:packages`.

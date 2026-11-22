@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   CostResolutionError,
+  previewCost,
   resolveCost,
+  SIZE_PLACEHOLDER,
   type Article,
   type CostBreakdown,
   type CostResolutionErrorCode,
@@ -237,9 +239,22 @@ describe('resolveCost · catálogo de ejemplo', () => {
     );
   });
 
-  it('Helecho grande: la fabricación heredada cubre el tamaño, pero no hay helecho grande', () => {
+  it('Helecho grande: el catálogo ofrece solo chico y mediano', () => {
     expectError(
       () => resolve({ productId: 'kokedama-helecho', size: 'grande' }),
+      'SIZE_NOT_OFFERED',
+      /chico, mediano/,
+    );
+  });
+
+  it('Helecho grande sin oferta propia: la fabricación heredada cubre el tamaño, pero no hay helecho grande', () => {
+    const inheritsSizes = sampleProducts.map((product) => {
+      if (product.id !== 'kokedama-helecho') return product;
+      const { sizes: _offer, ...withoutOffer } = product;
+      return withoutOffer;
+    });
+    expectError(
+      () => resolve({ products: inheritsSizes, productId: 'kokedama-helecho', size: 'grande' }),
       'NO_MATCHING_VARIANT',
       /Helecho Boston/,
     );
@@ -275,7 +290,9 @@ describe('resolveCost · árbol', () => {
     id: 'insumo',
     name: 'Insumo',
     stockUnit: 'piece',
-    variants: [{ sku: 'INS-1', attributes: {}, averageCost: cents(1000) }],
+    variants: [
+      { id: 'INS-1', sku: 'INS-1', sizeId: null, attributes: {}, averageCost: cents(1000) },
+    ],
   };
   const articles = [article];
   const node = (
@@ -357,6 +374,26 @@ describe('resolveCost · árbol', () => {
     expect(small.lines.map((candidate) => candidate.componentId)).toEqual(['fab']);
   });
 
+  it('un valor genérico con valores por tamaño: el del tamaño gana, el genérico cubre el resto', () => {
+    const products = [
+      node('a', null, [
+        { ...labor('fab', 0), amount: { generic: pesos(20), bySize: { grande: pesos(30) } } },
+        {
+          id: 'hilo',
+          kind: 'article',
+          category: 'material',
+          articleId: 'insumo',
+          quantity: { generic: 4, bySize: { mediano: 6 } },
+        },
+      ]),
+    ];
+    const at = (size: string) => resolveCost({ products, articles, productId: 'a', size });
+    expect(at('chico').total).toBe(2000 + 4000);
+    expect(at('mediano').total).toBe(2000 + 6000);
+    expect(at('grande').total).toBe(3000 + 4000);
+    expect(line(at('grande'), 'fab')).toMatchObject({ origin: 'own', unitCost: 3000 });
+  });
+
   it('rechaza dos componentes genéricos con la misma clave en un producto', () => {
     const products = [node('a', null, [labor('fab-1', 20), labor('fab-2', 25)])];
     expectError(
@@ -425,8 +462,20 @@ describe('resolveCost · árbol', () => {
       name: 'Maceta',
       stockUnit: 'piece',
       variants: [
-        { sku: 'M-GR', attributes: { color: 'gris' }, averageCost: cents(1500) },
-        { sku: 'M-BL', attributes: { color: 'blanco' }, averageCost: cents(1500) },
+        {
+          id: 'M-GR',
+          sku: 'M-GR',
+          sizeId: null,
+          attributes: { color: 'gris' },
+          averageCost: cents(1500),
+        },
+        {
+          id: 'M-BL',
+          sku: 'M-BL',
+          sizeId: null,
+          attributes: { color: 'blanco' },
+          averageCost: cents(1500),
+        },
       ],
     };
     const products = [
@@ -439,7 +488,7 @@ describe('resolveCost · árbol', () => {
           kind: 'article',
           category: 'material',
           articleId: 'maceta',
-          variantSku: 'M-GR',
+          variantId: 'M-GR',
           quantity: 1,
           replacesComponentId: 'mac',
         },
@@ -478,7 +527,7 @@ describe('resolveCost · árbol', () => {
           articleId: 'insumo',
           quantity: 0.3335,
           concept: 'Otro',
-          variantSku: 'INS-1',
+          variantId: 'INS-1',
         },
       ]),
     ];
@@ -555,5 +604,236 @@ describe('resolveCost · árbol', () => {
         costOf: () => 33.333 as Cents,
       }),
     ).toThrow(MoneyError);
+  });
+});
+
+describe('resolveCost · tamaño como dimensión (C3/C4)', () => {
+  const plant: Article = {
+    id: 'planta',
+    name: 'Planta',
+    stockUnit: 'piece',
+    variants: [
+      { id: 'v-ch', sku: 'P-CH', sizeId: 'small', attributes: {}, averageCost: cents(3000) },
+      { id: 'v-md', sku: 'P-MD', sizeId: 'medium', attributes: {}, averageCost: cents(4500) },
+      // Un atributo con el nombre anterior no cuenta como tamaño.
+      {
+        id: 'v-old',
+        sku: 'P-OLD',
+        sizeId: null,
+        attributes: { tamano: 'small' },
+        averageCost: cents(1),
+      },
+    ],
+  };
+  const pot: Article = {
+    id: 'maceta',
+    name: 'Maceta',
+    stockUnit: 'piece',
+    variants: [
+      {
+        id: 'm-gr',
+        sku: 'M-GR',
+        sizeId: null,
+        attributes: { forma: 'redonda', color: 'gris' },
+        averageCost: cents(1500),
+      },
+      {
+        id: 'm-bl',
+        sku: 'M-BL',
+        sizeId: null,
+        attributes: { forma: 'redonda', color: 'blanco' },
+        averageCost: cents(1600),
+        active: false,
+      },
+      {
+        id: 'm-ne',
+        sku: 'M-NE',
+        sizeId: null,
+        attributes: { forma: 'cuadrada', color: 'negro' },
+        averageCost: cents(2000),
+        active: false,
+      },
+    ],
+  };
+  const articles = [plant, pot];
+  const product = (components: Product['components']): Product[] => [
+    { id: 'p', parentId: null, name: 'Producto', components },
+  ];
+
+  it('{size} empareja la variante por sizeId con el tamaño producido', () => {
+    const products = product([
+      {
+        id: 'pl',
+        kind: 'article',
+        category: 'material',
+        articleId: 'planta',
+        variantSize: SIZE_PLACEHOLDER,
+        quantity: 1,
+      },
+    ]);
+    expect(resolveCost({ products, articles, productId: 'p', size: 'small' })).toMatchObject({
+      total: 3000,
+      lines: [{ variantId: 'v-ch', variantSku: 'P-CH' }],
+    });
+    expect(resolveCost({ products, articles, productId: 'p', size: 'medium' }).total).toBe(4500);
+    expectError(
+      () => resolveCost({ products, articles, productId: 'p', size: 'large' }),
+      'NO_MATCHING_VARIANT',
+    );
+  });
+
+  it('un tamaño literal empareja por sizeId sin importar el tamaño producido', () => {
+    const products = product([
+      {
+        id: 'pl',
+        kind: 'article',
+        category: 'material',
+        articleId: 'planta',
+        variantSize: 'medium',
+        quantity: 1,
+      },
+    ]);
+    expect(resolveCost({ products, articles, productId: 'p', size: 'small' }).total).toBe(4500);
+  });
+
+  it('el filtro solo considera variantes activas; elegir una inactiva no se permite', () => {
+    const products = product([
+      {
+        id: 'mac',
+        kind: 'article',
+        category: 'material',
+        articleId: 'maceta',
+        attributeFilter: { forma: 'redonda' },
+        quantity: 1,
+      },
+    ]);
+    expect(resolveCost({ products, articles, productId: 'p', size: 'small' })).toMatchObject({
+      total: 1500,
+      lines: [{ variantId: 'm-gr', variantInactive: false }],
+    });
+    expectError(
+      () =>
+        resolveCost({
+          products,
+          articles,
+          productId: 'p',
+          size: 'small',
+          variantChoices: { mac: 'm-bl' },
+        }),
+      'VARIANT_NOT_ALLOWED',
+    );
+  });
+
+  it('una variante fija se resuelve aunque esté inactiva y la línea lo indica', () => {
+    const products = product([
+      {
+        id: 'mac',
+        kind: 'article',
+        category: 'material',
+        articleId: 'maceta',
+        variantId: 'm-ne',
+        quantity: 1,
+      },
+    ]);
+    expect(resolveCost({ products, articles, productId: 'p', size: 'small' })).toMatchObject({
+      total: 2000,
+      lines: [{ variantId: 'm-ne', variantSku: 'M-NE', variantInactive: true }],
+    });
+  });
+
+  it('una variante fija que no es del artículo no coincide', () => {
+    const products = product([
+      {
+        id: 'mac',
+        kind: 'article',
+        category: 'material',
+        articleId: 'maceta',
+        variantId: 'v-ch',
+        quantity: 1,
+      },
+    ]);
+    expectError(
+      () => resolveCost({ products, articles, productId: 'p', size: 'small' }),
+      'NO_MATCHING_VARIANT',
+    );
+  });
+});
+
+describe('previewCost · requiere elegir variante', () => {
+  it('Cactus chica: no toma la primera ni promedia; pide elegir entre las dos macetas', () => {
+    const preview = previewCost({
+      products: sampleProducts,
+      articles: sampleArticles,
+      productId: 'cactus-maceta-concreto',
+      size: 'chico',
+    });
+
+    expect(preview.total).toBeNull();
+    expect(preview.pendingChoices).toEqual([
+      {
+        componentId: 'cm-maceta',
+        articleId: 'maceta-concreto',
+        candidates: [
+          {
+            variantId: 'MAC-CON-R08-GR',
+            sku: 'MAC-CON-R08-GR',
+            sizeId: null,
+            attributes: { forma: 'redonda', diametro: 8, color: 'gris' },
+            unitCost: 1500,
+          },
+          {
+            variantId: 'MAC-CON-R08-BL',
+            sku: 'MAC-CON-R08-BL',
+            sizeId: null,
+            attributes: { forma: 'redonda', diametro: 8, color: 'blanco' },
+            unitCost: 1500,
+          },
+        ],
+      },
+    ]);
+    expect(line(preview as CostBreakdown, 'cm-maceta')).toMatchObject({
+      variantId: null,
+      unitCost: null,
+      subtotal: null,
+    });
+    // Las demás líneas sí se resuelven para mostrarlas.
+    expect(line(preview as CostBreakdown, 'pm-arm').subtotal).toBe(800);
+  });
+
+  it('con la elección da el mismo desglose que resolveCost', () => {
+    const input = {
+      products: sampleProducts,
+      articles: sampleArticles,
+      productId: 'cactus-maceta-concreto',
+      size: 'chico',
+      variantChoices: { 'cm-maceta': 'MAC-CON-R08-GR' },
+    };
+    const preview = previewCost(input);
+    expect(preview.pendingChoices).toEqual([]);
+    expect(preview.total).toBe(4550);
+    expect(preview.lines).toEqual(resolveCost(input).lines);
+  });
+
+  it('Kokedama Nochebuena chica: sin elecciones pendientes y total $53.10', () => {
+    const preview = previewCost({
+      products: sampleProducts,
+      articles: sampleArticles,
+      productId: 'kokedama-nochebuena',
+      size: 'chico',
+    });
+    expect(preview).toMatchObject({ total: 5310, pendingChoices: [] });
+  });
+
+  it('los demás errores se siguen lanzando', () => {
+    expectError(
+      () =>
+        previewCost({
+          products: sampleProducts,
+          articles: sampleArticles,
+          productId: 'kokedama-helecho',
+          size: 'grande',
+        }),
+      'SIZE_NOT_OFFERED',
+    );
   });
 });

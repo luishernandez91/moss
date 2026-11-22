@@ -10,8 +10,12 @@ import {
   articleVariants,
   articles,
   attributes,
+  products,
   variantCostChanges,
 } from '../src/database/schema.js';
+import { assessProductCosts } from '@moss/domain';
+import type { Database } from '../src/database/database.module.js';
+import { loadProductCatalog } from '../src/products/product-catalog.query.js';
 import { SeedConflictError, seedCatalog, type SpecCatalog } from '../src/database/seed.js';
 import { deleteCatalogByPrefix } from './catalog-cleanup.js';
 
@@ -27,6 +31,15 @@ function isolated(prefix: string, catalog: SpecCatalog = specCatalog): SpecCatal
   const sku = prefix.replace(/[^a-z0-9]/gi, '').toUpperCase();
   return {
     ...catalog,
+    productos: (catalog.productos ?? []).map((product) => ({
+      ...product,
+      nombre: `${prefix} ${product.nombre}`,
+      componentes: product.componentes.map((component) =>
+        component.variante_sku === undefined
+          ? component
+          : { ...component, variante_sku: `${sku}-${component.variante_sku}` },
+      ),
+    })),
     tipos_articulo: catalog.tipos_articulo.map((type) => ({
       ...type,
       nombre: `${prefix} ${type.nombre}`,
@@ -65,6 +78,19 @@ describe('db:seed con el catálogo de ejemplo (PostgreSQL real)', () => {
     (sum, article) => sum + article.variantes.length,
     0,
   );
+  const expectedProducts = specCatalog.productos!.length;
+  const expectedComponents = specCatalog.productos!.reduce(
+    (sum, product) => sum + product.componentes.length,
+    0,
+  );
+  const none = {
+    articleTypes: 0,
+    attributes: 0,
+    articles: 0,
+    variants: 0,
+    products: 0,
+    recipeComponents: 0,
+  };
 
   it('carga tipos, atributos, artículos y variantes; la segunda corrida no cambia nada', async () => {
     const prefix = nextPrefix();
@@ -75,8 +101,10 @@ describe('db:seed con el catálogo de ejemplo (PostgreSQL real)', () => {
       attributes: expectedAttributes,
       articles: specCatalog.articulos.length,
       variants: expectedVariants,
+      products: expectedProducts,
+      recipeComponents: expectedComponents,
     });
-    expect(first.existing).toEqual({ articleTypes: 0, attributes: 0, articles: 0, variants: 0 });
+    expect(first.existing).toEqual(none);
 
     // Artículos creados en piezas porque el catálogo no les da unidad_consumo.
     const withoutUnit = specCatalog.articulos
@@ -87,7 +115,7 @@ describe('db:seed con el catálogo de ejemplo (PostgreSQL real)', () => {
 
     const second = await seedCatalog(db, catalog);
     expect(second.defaultedToPiece).toEqual([]);
-    expect(second.created).toEqual({ articleTypes: 0, attributes: 0, articles: 0, variants: 0 });
+    expect(second.created).toEqual(none);
     expect(second.existing).toEqual(first.created);
   });
 
@@ -367,5 +395,179 @@ describe('db:seed con el catálogo de ejemplo (PostgreSQL real)', () => {
     expect(
       await db.select().from(variantCostChanges).where(isNull(variantCostChanges.variantId)),
     ).toEqual([]);
+  });
+
+  describe('productos y recetas (C4)', () => {
+    async function seeded(prefix: string) {
+      const loaded = await loadProductCatalog(db as unknown as Database);
+      const ids = new Map(
+        loaded.catalog.products
+          .filter((product) => product.name.startsWith(`${prefix} `))
+          .map((product) => [product.name.slice(prefix.length + 1), product.id]),
+      );
+      const sizes = new Map(loaded.sizeRows.map((size) => [size.key, size.id]));
+      const costs = new Map(
+        assessProductCosts(loaded.catalog, { minMarginPercent: 0 }).map((row) => [
+          row.productId,
+          row.sizes,
+        ]),
+      );
+      const costOf = (name: string, key: string) =>
+        costs.get(ids.get(name)!)!.find((entry) => entry.sizeId === sizes.get(key));
+      const components = (name: string) =>
+        loaded.catalog.components.filter((component) => component.productId === ids.get(name));
+      return { loaded, ids, sizes, costOf, components };
+    }
+
+    it('siembra árbol, oferta, precios y recetas por size_id; los costos de D2 cuadran', async () => {
+      const prefix = nextPrefix();
+      await seedCatalog(db, isolated(prefix));
+      const { loaded, ids, sizes, costOf, components } = await seeded(prefix);
+
+      expect(costOf('Kokedama Nochebuena', 'small')).toMatchObject({
+        status: 'ok',
+        cost: 5310,
+        price: 12000,
+      });
+      // Nochebuena mediana con tierra: $74.65; con el Reno de C5 ($18.50) da los $93.15 de D2.
+      expect(costOf('Kokedama Nochebuena', 'medium')).toMatchObject({
+        status: 'ok',
+        cost: 7465,
+        price: 16000,
+      });
+      expect(costOf('Kokedama Helecho Boston', 'small')).toMatchObject({
+        status: 'ok',
+        cost: 6285,
+      });
+      expect(costOf('Cactus en maceta de concreto', 'small')).toMatchObject({
+        status: 'needs_choice',
+        cost: null,
+        price: 9500,
+      });
+      expect(costOf('Centro de mesa suculenta mini', 'mini')).toMatchObject({ status: 'ok' });
+
+      const helecho = loaded.catalog.products.find(
+        (product) => product.id === ids.get('Kokedama Helecho Boston'),
+      )!;
+      expect(helecho.sizeOffer).toEqual({
+        mode: 'explicit',
+        sizeIds: [sizes.get('small'), sizes.get('medium')],
+      });
+      expect(
+        loaded.catalog.products.find((product) => product.id === ids.get('Kokedama Nochebuena')),
+      ).toMatchObject({
+        parentId: ids.get('Kokedama'),
+        sizeOffer: { mode: 'inherit' },
+      });
+      // {tamano} es el tamaño producido; un literal es el size_id del catálogo; nunca un atributo tamano.
+      expect(components('Kokedama Nochebuena')[0]).toMatchObject({
+        variantSize: { match: 'produced' },
+        attributeFilter: {},
+      });
+      expect(components('Cactus en maceta de concreto')[0]).toMatchObject({
+        variantSize: { match: 'size', sizeId: sizes.get('small') },
+        attributeFilter: {},
+      });
+      const soil = components('Kokedama').find(
+        (component) => component.kind === 'article' && component.variantId !== null,
+      )!;
+      expect(soil.values).toEqual([
+        { sizeId: sizes.get('small'), quantity: 0.01 },
+        { sizeId: sizes.get('medium'), quantity: 0.015 },
+        { sizeId: sizes.get('large'), quantity: 0.025 },
+      ]);
+      const fab = components('Kokedama').find((component) => component.kind === 'fixed')!;
+      expect(
+        components('Kokedama Helecho Boston').find((component) => component.kind === 'fixed'),
+      ).toMatchObject({
+        replacesComponentId: fab.id,
+      });
+    });
+
+    it('dos corridas conservan los mismos IDs y referencias', async () => {
+      const prefix = nextPrefix();
+      await seedCatalog(db, isolated(prefix));
+      const before = await seeded(prefix);
+      const report = await seedCatalog(db, isolated(prefix));
+      expect(report.created).toEqual(none);
+      expect(report.existing).toMatchObject({
+        products: expectedProducts,
+        recipeComponents: expectedComponents,
+      });
+      const after = await seeded(prefix);
+      expect([...after.ids]).toEqual([...before.ids]);
+      const own = (state: typeof before) =>
+        state.loaded.catalog.components.filter((component) =>
+          [...state.ids.values()].includes(component.productId),
+        );
+      expect(own(after)).toEqual(own(before));
+    });
+
+    it('un producto agregado después resuelve su sustitución contra el componente ya sembrado', async () => {
+      const prefix = nextPrefix();
+      const full = isolated(prefix);
+      await seedCatalog(db, {
+        ...full,
+        productos: full.productos!.filter((product) => product.id === 'kokedama'),
+      });
+      const partial = await seeded(prefix);
+      const fabId = partial
+        .components('Kokedama')
+        .find((component) => component.kind === 'fixed')!.id;
+      const report = await seedCatalog(db, full);
+      expect(report.existing).toMatchObject({ products: 1, recipeComponents: 4 });
+      expect(report.created).toMatchObject({
+        products: expectedProducts - 1,
+        recipeComponents: expectedComponents - 4,
+      });
+      const complete = await seeded(prefix);
+      expect(complete.ids.get('Kokedama')).toBe(partial.ids.get('Kokedama'));
+      expect(
+        complete
+          .components('Kokedama Helecho Boston')
+          .find((component) => component.kind === 'fixed'),
+      ).toMatchObject({
+        replacesComponentId: fabId,
+      });
+      expect(complete.costOf('Kokedama Helecho Boston', 'small')).toMatchObject({ cost: 6285 });
+    });
+
+    it('un producto existente con otro padre aborta todo sin cambios', async () => {
+      const prefix = nextPrefix();
+      const full = isolated(prefix);
+      await seedCatalog(db, { ...full, productos: [] });
+      await db.insert(products).values({ name: `${prefix} Kokedama Nochebuena` });
+      await expect(seedCatalog(db, full)).rejects.toThrow(/Kokedama Nochebuena.*otro padre/);
+      const rows = await db
+        .select({ name: products.name })
+        .from(products)
+        .where(like(products.name, `${prefix}%`));
+      expect(rows.map((row) => row.name)).toEqual([`${prefix} Kokedama Nochebuena`]);
+    });
+
+    it('una variante fija inexistente aborta y nombra el SKU', async () => {
+      const prefix = nextPrefix();
+      const full = isolated(prefix);
+      const broken: SpecCatalog = {
+        ...full,
+        productos: full.productos!.map((product) =>
+          product.id === 'kokedama'
+            ? {
+                ...product,
+                componentes: product.componentes.map((component) =>
+                  component.variante_sku ? { ...component, variante_sku: 'NO-EXISTE' } : component,
+                ),
+              }
+            : product,
+        ),
+      };
+      await expect(seedCatalog(db, broken)).rejects.toThrow(/Kokedama.*NO-EXISTE/);
+      expect(
+        await db
+          .select()
+          .from(products)
+          .where(like(products.name, `${prefix}%`)),
+      ).toEqual([]);
+    });
   });
 });

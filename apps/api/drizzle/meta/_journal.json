@@ -57,6 +57,13 @@
       "when": 1795272218954,
       "tag": "0007_campaigns_overlap",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795284342166,
+      "tag": "0008_products_recipes",
+      "breakpoints": true
     }
   ]
 }
