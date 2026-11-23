@@ -14,3 +14,4 @@ export * from './partner.js';
 
 export * from './size.js';
 export * from './campaign-list.js';
+export * from './type-dimensions.js';

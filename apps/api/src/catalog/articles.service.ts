@@ -1,3 +1,4 @@
+import { assertDimensionSnapshot, TypeDimensionError } from '@moss/domain';
 import { catalogWrite } from './catalog-write.js';
 import { SizeError, assertSizeRequirement, assertSizeAssignment } from '@moss/domain';
 import {
@@ -285,6 +286,19 @@ export class ArticlesService {
   }
 
   async update(id: string, patch: UpdateArticle): Promise<ArticleDetail> {
+    // Clientes sin snapshot: captura antes de esperar el bloqueo para detectar carreras en vuelo.
+    const expected =
+      patch.fixedAttributes === undefined
+        ? undefined
+        : (patch.expectedFixedAttributes ?? (await this.detail(id)).fixedAttributes);
+    return catalogWrite(this.db, (tx) => new ArticlesService(tx).updateLocked(id, patch, expected));
+  }
+
+  private async updateLocked(
+    id: string,
+    patch: UpdateArticle,
+    expected?: AttributeValues,
+  ): Promise<ArticleDetail> {
     const current = await this.detail(id);
     runDomainRule(ArticleError, () =>
       assertArticleFlags({
@@ -292,7 +306,13 @@ export class ArticlesService {
         usedInRecipes: patch.usedInRecipes ?? current.usedInRecipes,
       }),
     );
-    const { fixedAttributes, ...rest } = patch;
+    if (expected !== undefined)
+      runDomainRule(
+        TypeDimensionError,
+        () => assertDimensionSnapshot(current.fixedAttributes, expected),
+        409,
+      );
+    const { fixedAttributes, expectedFixedAttributes: _expected, ...rest } = patch;
     const values =
       fixedAttributes === undefined
         ? undefined
@@ -339,14 +359,20 @@ export class ArticlesService {
     );
   }
 
-  updateVariant(
+  async updateVariant(
     articleId: string,
     variantId: string,
     patch: UpdateVariant,
     partnerId: string,
   ): Promise<ArticleVariant> {
+    let expected = patch.expectedDimension;
+    if (expected === undefined && (patch.attributes !== undefined || patch.sizeId !== undefined)) {
+      const current = (await this.detail(articleId)).variants.find((v) => v.id === variantId);
+      if (!current) throw variantNotFound();
+      expected = { attributes: current.attributes, sizeId: current.sizeId };
+    }
     return catalogWrite(this.db, (tx) =>
-      new ArticlesService(tx).updateVariantLocked(articleId, variantId, patch, partnerId),
+      new ArticlesService(tx).updateVariantLocked(articleId, variantId, patch, partnerId, expected),
     );
   }
   private async updateVariantLocked(
@@ -354,10 +380,23 @@ export class ArticlesService {
     variantId: string,
     patch: UpdateVariant,
     partnerId: string,
+    expected?: { attributes: AttributeValues; sizeId: string | null },
   ): Promise<ArticleVariant> {
     const article = await this.detail(articleId);
     const current = article.variants.find((variant) => variant.id === variantId);
     if (!current) throw variantNotFound();
+    if (expected !== undefined)
+      runDomainRule(
+        TypeDimensionError,
+        () =>
+          assertDimensionSnapshot(
+            current.attributes,
+            expected.attributes,
+            current.sizeId,
+            expected.sizeId,
+          ),
+        409,
+      );
     const sizeId = patch.sizeId === undefined ? current.sizeId : patch.sizeId;
     await this.validateSize(article.articleType.usesSize, sizeId, current.sizeId);
     const changes: Partial<typeof articleVariants.$inferInsert> = {};

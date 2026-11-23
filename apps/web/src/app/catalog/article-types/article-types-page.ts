@@ -1,3 +1,4 @@
+import { EnableSizeDialog } from './enable-size-dialog';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -88,6 +89,10 @@ export class ArticleTypesPage {
     await this.open<TypeDialog, TypeDialogData, string>(TypeDialog, { type });
   }
 
+  protected async enableSizes(type: ArticleType): Promise<void> {
+    await this.open<EnableSizeDialog, ArticleType, boolean>(EnableSizeDialog, type);
+  }
+
   protected async deleteType(type: ArticleType): Promise<void> {
     const confirmed = await this.open<ConfirmDialog, ConfirmDialogData, boolean>(ConfirmDialog, {
       title: 'Borrar tipo',
@@ -102,6 +107,7 @@ export class ArticleTypesPage {
   protected async editAttribute(typeId: string, attribute?: Attribute): Promise<void> {
     await this.open<AttributeDialog, AttributeDialogData, boolean>(AttributeDialog, {
       typeId,
+      articleCount: this.types.value().find((type) => type.id === typeId)?.articleCount ?? 0,
       ...(attribute && { attribute }),
     });
   }
